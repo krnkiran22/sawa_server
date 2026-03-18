@@ -2,7 +2,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IOtpToken extends Document {
   phone: string;
-  coupleId: string;       // shared couple ID
+  coupleId: string;       // shared couple entity ID
   otpCode: string;        // dummy: stored plain (no SMS service yet)
   expiresAt: Date;
   attempts: number;

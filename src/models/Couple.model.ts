@@ -6,12 +6,14 @@ export interface IOnboardingAnswer {
 }
 
 export interface ICouple extends Document {
-  partner1: Types.ObjectId;
+  coupleId: string;    // Matches User.coupleId
+  partner1?: Types.ObjectId;
   partner2?: Types.ObjectId;
-  partnerInviteCode?: string;
   profileName?: string;
+  relationshipStatus?: string;
   bio?: string;
-  avatarUrl?: string;
+  primaryPhoto?: string;
+  secondaryPhotos: string[];
   location?: {
     city?: string;
     country?: string;
@@ -31,12 +33,14 @@ export interface ICouple extends Document {
 
 const CoupleSchema = new Schema<ICouple>(
   {
-    partner1: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-    partner2: { type: Schema.Types.ObjectId, ref: 'User', default: null },
-    partnerInviteCode: { type: String, unique: true, sparse: true },
+    coupleId: { type: String, required: true, unique: true, index: true },
+    partner1: { type: Schema.Types.ObjectId, ref: 'User' },
+    partner2: { type: Schema.Types.ObjectId, ref: 'User' },
     profileName: { type: String, trim: true },
+    relationshipStatus: { type: String },
     bio: { type: String, trim: true, maxlength: 500 },
-    avatarUrl: { type: String },
+    primaryPhoto: { type: String },
+    secondaryPhotos: [{ type: String }],
     location: {
       city: { type: String },
       country: { type: String },

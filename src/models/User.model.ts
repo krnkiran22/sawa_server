@@ -2,7 +2,10 @@ import mongoose, { Schema, Document, Types } from 'mongoose';
 
 export interface IUser extends Document {
   phone: string;
-  coupleId: string;          // shared couple ID
+  name?: string;
+  email?: string;
+  dob?: string;
+  coupleId: string;          // shared couple entity ID
   isPhoneVerified: boolean;
   refreshTokenHash?: string;
   role: 'primary' | 'partner'; // which seat in the couple
@@ -17,6 +20,18 @@ const UserSchema = new Schema<IUser>(
       required: true,
       unique: true,
       trim: true,
+    },
+    name: {
+      type: String,
+      trim: true,
+    },
+    email: {
+      type: String,
+      trim: true,
+      lowercase: true,
+    },
+    dob: {
+      type: String,
     },
     coupleId: {
       type: String,

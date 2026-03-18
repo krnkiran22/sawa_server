@@ -48,7 +48,7 @@ export const validateRefresh = validate(RefreshSchema);
  * POST /api/v1/auth/send-otp
  * Body: { yourPhone, partnerPhone }
  *
- * Creates/finds a shared entityId for both phones.
+ * Creates/finds a shared coupleId for both phones.
  * Generates dummy OTPs and stores them.
  * In DEV: OTP codes are logged in server console.
  */
@@ -62,7 +62,7 @@ export const sendOtp = async (req: Request, res: Response): Promise<void> => {
     statusCode: 200,
     message: 'OTP sent to both numbers',
     data: {
-      entityId: result.entityId,
+      coupleId: result.coupleId,
       // In dev, surface the OTP in the response for testing without SMS
       ...(process.env.NODE_ENV !== 'production' && { _devNote: 'Use any 4-digit code to verify in dummy mode' }),
     },
@@ -87,7 +87,7 @@ export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
     statusCode: 200,
     message: 'OTP verified successfully',
     data: {
-      entityId: result.entityId,
+      coupleId: result.coupleId,
       accessToken: result.yourToken.accessToken,
       refreshToken: result.yourToken.refreshToken,
       // Partner tokens returned so the partner device can also log in

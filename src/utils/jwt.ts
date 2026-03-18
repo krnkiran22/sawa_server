@@ -4,7 +4,7 @@ import { AppError } from './AppError';
 
 export interface JwtPayload {
   userId: string;
-  entityId?: string;   // shared couple entity ID
+  coupleId?: string;   // shared couple entity ID
   type: 'access' | 'refresh';
 }
 

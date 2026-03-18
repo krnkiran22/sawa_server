@@ -12,11 +12,11 @@ export class AuthService {
    * STEP 1 — Send OTP
    *
    * Takes yourPhone and partnerPhone.
-   * Creates a shared entityId (like a couple session ID).
+   * Creates a shared coupleId (like a couple session ID).
    * Generates dummy OTPs for both numbers.
    * Upserts both users in DB (primary + partner roles).
    */
-  async sendOtp(yourPhone: string, partnerPhone: string): Promise<{ entityId: string }> {
+  async sendOtp(yourPhone: string, partnerPhone: string): Promise<{ coupleId: string }> {
     if (yourPhone === partnerPhone) {
       throw new AppError('Your number and partner number cannot be the same', 400, 'SAME_NUMBER');
     }
@@ -25,30 +25,30 @@ export class AuthService {
     const existingYours = await userRepository.findByPhone(yourPhone);
     const existingPartner = await userRepository.findByPhone(partnerPhone);
 
-    // Determine or create the shared entityId
-    let entityId: string;
+    // Determine or create the shared coupleId
+    let coupleId: string;
 
     if (existingYours && existingYours.isPhoneVerified) {
-      // Returning user — use their existing entityId
-      entityId = existingYours.entityId;
+      // Returning user — use their existing coupleId
+      coupleId = existingYours.coupleId;
     } else if (existingPartner && existingPartner.isPhoneVerified) {
-      entityId = existingPartner.entityId;
+      coupleId = existingPartner.coupleId;
     } else {
-      // New couple — generate a fresh entityId
-      entityId = crypto.randomUUID();
+      // New couple — generate a fresh coupleId
+      coupleId = crypto.randomUUID();
     }
 
-    // Upsert both users under the same entityId
-    await userRepository.upsertByPhone(yourPhone, entityId, 'primary');
-    await userRepository.upsertByPhone(partnerPhone, entityId, 'partner');
+    // Upsert both users under the same coupleId
+    await userRepository.upsertByPhone(yourPhone, coupleId, 'primary');
+    await userRepository.upsertByPhone(partnerPhone, coupleId, 'partner');
 
     // Generate dummy OTPs for both (stored in DB, logged in dev)
-    await otpService.generateAndStore(yourPhone, entityId);
-    await otpService.generateAndStore(partnerPhone, entityId);
+    await otpService.generateAndStore(yourPhone, coupleId);
+    await otpService.generateAndStore(partnerPhone, coupleId);
 
-    logger.info(`[AuthService] OTPs issued for entity: ${entityId}`);
+    logger.info(`[AuthService] OTPs issued for entity: ${coupleId}`);
 
-    return { entityId };
+    return { coupleId };
   }
 
   /**
@@ -64,7 +64,7 @@ export class AuthService {
     partnerPhone: string,
     partnerOtp: string,
   ): Promise<{
-    entityId: string;
+    coupleId: string;
     yourToken: TokenPair;
     partnerToken: TokenPair;
   }> {
@@ -82,7 +82,7 @@ export class AuthService {
       throw new AppError("Partner's OTP is invalid or expired", 400, 'INVALID_PARTNER_OTP');
     }
 
-    const entityId = yourResult.entityId!;
+    const coupleId = yourResult.coupleId!;
 
     // Mark both as verified
     const [yourUser, partnerUser] = await Promise.all([
@@ -93,21 +93,21 @@ export class AuthService {
     // Issue JWT tokens for your user (the one on this device)
     const yourAccessToken = signAccessToken({
       userId: yourUser._id.toString(),
-      entityId,
+      coupleId,
     });
     const yourRefreshToken = signRefreshToken({
       userId: yourUser._id.toString(),
-      entityId,
+      coupleId,
     });
 
     // Issue tokens for partner too (they will receive via their device later)
     const partnerAccessToken = signAccessToken({
       userId: partnerUser._id.toString(),
-      entityId,
+      coupleId,
     });
     const partnerRefreshToken = signRefreshToken({
       userId: partnerUser._id.toString(),
-      entityId,
+      coupleId,
     });
 
     // Store hashed refresh tokens
@@ -122,10 +122,10 @@ export class AuthService {
       ),
     ]);
 
-    logger.info(`[AuthService] Both users verified. Entity: ${entityId}`);
+    logger.info(`[AuthService] Both users verified. Entity: ${coupleId}`);
 
     return {
-      entityId,
+      coupleId,
       yourToken: { accessToken: yourAccessToken, refreshToken: yourRefreshToken },
       partnerToken: { accessToken: partnerAccessToken, refreshToken: partnerRefreshToken },
     };
@@ -148,7 +148,7 @@ export class AuthService {
 
     const accessToken = signAccessToken({
       userId: user._id.toString(),
-      entityId: payload.entityId ?? user.entityId,
+      coupleId: payload.coupleId ?? user.coupleId,
     });
 
     return { accessToken };

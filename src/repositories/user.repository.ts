@@ -10,8 +10,8 @@ export class UserRepository {
     return User.findById(id);
   }
 
-  async findByEntityId(entityId: string): Promise<IUser[]> {
-    return User.find({ entityId });
+  async findByEntityId(coupleId: string): Promise<IUser[]> {
+    return User.find({ coupleId });
   }
 
   /**
@@ -20,7 +20,7 @@ export class UserRepository {
    */
   async upsertByPhone(
     phone: string,
-    entityId: string,
+    coupleId: string,
     role: 'primary' | 'partner',
   ): Promise<IUser> {
     const existing = await User.findOne({ phone });
@@ -28,7 +28,7 @@ export class UserRepository {
       return existing;
     }
 
-    return User.create({ phone, entityId, role, isPhoneVerified: false });
+    return User.create({ phone, coupleId, role, isPhoneVerified: false });
   }
 
   async markVerified(phone: string): Promise<IUser> {

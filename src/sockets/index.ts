@@ -9,7 +9,7 @@ import { registerMatchHandlers } from './match.socket';
 declare module 'socket.io' {
   interface Socket {
     userId?: string;
-    entityId?: string;
+    coupleId?: string;
   }
 }
 
@@ -34,7 +34,7 @@ export const createSocketServer = (httpServer: HTTPServer): SocketIOServer => {
     try {
       const payload = verifyAccessToken(token);
       socket.userId = payload.userId;
-      socket.entityId = payload.entityId;
+      socket.coupleId = payload.coupleId;
       next();
     } catch {
       next(new Error('Invalid authentication token'));

@@ -26,7 +26,7 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
       // TODO Phase 4: persist message, then broadcast
       io.to(`chat:${data.chatId}`).emit(SOCKET_EVENTS.CHAT_MESSAGE, {
         chatId: data.chatId,
-        senderId: socket.entityId,
+        senderId: socket.coupleId,
         content: data.content,
         contentType: data.contentType ?? 'text',
         timestamp: new Date().toISOString(),
@@ -38,14 +38,14 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
   socket.on(SOCKET_EVENTS.CHAT_TYPING, (data: { chatId: string }) => {
     socket.to(`chat:${data.chatId}`).emit(SOCKET_EVENTS.CHAT_TYPING, {
       chatId: data.chatId,
-      senderId: socket.entityId,
+      senderId: socket.coupleId,
     });
   });
 
   socket.on(SOCKET_EVENTS.CHAT_STOP_TYPING, (data: { chatId: string }) => {
     socket.to(`chat:${data.chatId}`).emit(SOCKET_EVENTS.CHAT_STOP_TYPING, {
       chatId: data.chatId,
-      senderId: socket.entityId,
+      senderId: socket.coupleId,
     });
   });
 };
