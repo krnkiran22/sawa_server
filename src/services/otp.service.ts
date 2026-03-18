@@ -1,6 +1,7 @@
 import { OtpToken } from '../models/OtpToken.model';
 import { OTP_LENGTH, OTP_EXPIRES_IN_MINUTES } from '../constants/index';
 import { logger } from '../utils/logger';
+import { User } from '../models/User.model';
 
 /**
  * OTP Service — DUMMY MODE
@@ -42,19 +43,34 @@ export class OtpService {
    * Real verification is skipped — this just checks a valid token exists.
    */
   async verify(phone: string, enteredCode: string): Promise<{ valid: boolean; coupleId: string | null }> {
+    logger.debug(`[OtpService] Verifying OTP for ${phone}. Code entered: ${enteredCode}`);
     const token = await OtpToken.findOne({ phone }).sort({ createdAt: -1 });
 
     if (!token) {
+      logger.warn(`[OtpService] No OTP token found in DB for ${phone}. If this is Login, ensuring send-otp was called.`);
+      
+      // FALLBACK: If it is '1234' and we are in DEV, let it pass as a "super dummy" mode
+      if (process.env.NODE_ENV !== 'production' && enteredCode === '1234') {
+        logger.info(`[OtpService] Token missing for ${phone} but entered '1234' - allowing dummy pass in DEV`);
+        
+        // Try to find the coupleId from the User record directly so login still works
+        const user = await User.findOne({ phone });
+        if (user && user.coupleId) {
+            return { valid: true, coupleId: user.coupleId };
+        }
+      }
       return { valid: false, coupleId: null };
     }
 
     if (token.expiresAt < new Date()) {
+      logger.warn(`[OtpService] OTP token expired for ${phone}`);
       await OtpToken.deleteOne({ _id: token._id });
       return { valid: false, coupleId: null };
     }
 
     // DUMMY: only accept '1234' 
     if (enteredCode !== '1234') {
+        logger.info(`[OtpService] Invalid OTP code: ${enteredCode} for ${phone}`);
         return { valid: false, coupleId: null };
     }
     

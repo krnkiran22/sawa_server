@@ -65,6 +65,82 @@ const COUPLES = [
       { questionId: 'q5', selectedOptionIds: ['q5-small-groups'] },
       { questionId: 'q8', selectedOptionIds: ['q8-2'] }
     ]
+  },
+  {
+    coupleId: 'seed_couple_4',
+    primaryPhoto: 'https://images.unsplash.com/photo-1523438885200-e635ba2c371e?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+    secondaryPhotos: [],
+    profileName: 'Kavita & Amit',
+    bio: 'Tennis partners and fitness enthusiasts. Looking for other active couples!',
+    relationshipStatus: 'Married',
+    location: { city: 'Bengaluru', country: 'India' },
+    isProfileComplete: true,
+    answers: [
+      { questionId: 'q1', selectedOptionIds: ['q1-settled'] },
+      { questionId: 'q3', selectedOptionIds: ['q3-fitness', 'q3-outdoor'] },
+      { questionId: 'q4', selectedOptionIds: ['q4-once-week'] },
+      { questionId: 'q5', selectedOptionIds: ['q5-structured-plans'] }
+    ]
+  },
+  {
+    coupleId: 'seed_couple_5',
+    primaryPhoto: 'https://images.unsplash.com/photo-1533228892549-78356748ed2c?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+    secondaryPhotos: [],
+    profileName: 'Zara & Neel',
+    bio: 'Techies by day, musicians by night. Love jam sessions and live gigs.',
+    relationshipStatus: 'Dating',
+    location: { city: 'Bengaluru', country: 'India' },
+    isProfileComplete: true,
+    answers: [
+      { questionId: 'q1', selectedOptionIds: ['q1-career'] },
+      { questionId: 'q3', selectedOptionIds: ['q3-cultural', 'q3-drinks'] },
+      { questionId: 'q4', selectedOptionIds: ['q4-twice-month'] }
+    ]
+  },
+  {
+    coupleId: 'seed_couple_6',
+    primaryPhoto: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+    secondaryPhotos: [],
+    profileName: 'Anjali & Vikram',
+    bio: 'Passionate about sustainable living and weekend farming.',
+    relationshipStatus: 'Married',
+    location: { city: 'Pune', country: 'India' },
+    isProfileComplete: true,
+    answers: [
+      { questionId: 'q1', selectedOptionIds: ['q1-settled'] },
+      { questionId: 'q3', selectedOptionIds: ['q3-outdoor'] },
+      { questionId: 'q4', selectedOptionIds: ['q4-once-month'] }
+    ]
+  },
+  {
+    coupleId: 'seed_couple_7',
+    primaryPhoto: 'https://images.unsplash.com/photo-1522529599102-193c0d76b5b6?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+    secondaryPhotos: [],
+    profileName: 'Sana & Kabir',
+    bio: 'Just moved to the city! Looking for friends to explore local board game cafes.',
+    relationshipStatus: 'Dating',
+    location: { city: 'Bengaluru', country: 'India' },
+    isProfileComplete: true,
+    answers: [
+      { questionId: 'q1', selectedOptionIds: ['q1-career'] },
+      { questionId: 'q3', selectedOptionIds: ['q3-restaurants', 'q3-cultural'] },
+      { questionId: 'q4', selectedOptionIds: ['q4-once-week'] }
+    ]
+  },
+  {
+    coupleId: 'seed_couple_8',
+    primaryPhoto: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+    secondaryPhotos: [],
+    profileName: 'Maya & Ishaan',
+    bio: 'Photographers who love chasing sunsets and capturing city life.',
+    relationshipStatus: 'Engaged',
+    location: { city: 'Hyderabad', country: 'India' },
+    isProfileComplete: true,
+    answers: [
+      { questionId: 'q1', selectedOptionIds: ['q1-living'] },
+      { questionId: 'q3', selectedOptionIds: ['q3-trips', 'q3-outdoor'] },
+      { questionId: 'q4', selectedOptionIds: ['q4-twice-month'] }
+    ]
   }
 ];
 
