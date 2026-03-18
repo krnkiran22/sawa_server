@@ -2,7 +2,7 @@ import mongoose, { Schema, Document, Types } from 'mongoose';
 
 export interface IUser extends Document {
   phone: string;
-  entityId: string;          // shared couple entity ID
+  coupleId: string;          // shared couple ID
   isPhoneVerified: boolean;
   refreshTokenHash?: string;
   role: 'primary' | 'partner'; // which seat in the couple
@@ -18,7 +18,7 @@ const UserSchema = new Schema<IUser>(
       unique: true,
       trim: true,
     },
-    entityId: {
+    coupleId: {
       type: String,
       required: true,
       index: true,
