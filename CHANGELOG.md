@@ -107,3 +107,11 @@
 ### Changed
 - `entityId` fully refactored and renamed to `coupleId` across both the Backend and Mobile App codebases to match original naming intention.
 - Mobile frontend screens (ProfileSetupScreen, StoryPhotoScreen, QuestionScreen) wired to the APIs, persisting true data without any UI changes.
+
+### Phase 3 & 4 (Discovery & Communities)
+- Added `Match` model and `/api/v1/matches/discovery` feed populated with seed & sorting logic.
+- Wired `HomeScreen` to render actual couple cards fetched from backend feed.
+- Added `/api/v1/matches/say-hello` and `/api/v1/matches/skip` to allow users to interact with discovery feed.
+- Added `Community` model and `/api/v1/communities` API suite for listing discover / yours feeds.
+- Seeded default Communities to `CommunityService`.
+- Wired `CommunitiesScreen` and `CommunityDetailScreen` to fetch dynamic communities via backend endpoint while respecting initial UI.
