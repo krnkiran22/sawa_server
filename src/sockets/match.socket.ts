@@ -7,9 +7,9 @@ import { logger } from '../utils/logger';
  */
 export const registerMatchHandlers = (_io: SocketIOServer, socket: Socket): void => {
   // Each couple joins their own room for targeted notifications
-  if (socket.coupleId) {
-    socket.join(`couple:${socket.coupleId}`);
-    logger.debug(`Socket ${socket.id} joined couple room: couple:${socket.coupleId}`);
+  if (socket.entityId) {
+    socket.join(`couple:${socket.entityId}`);
+    logger.debug(`Socket ${socket.id} joined couple room: couple:${socket.entityId}`);
   }
 
   // TODO Phase 3: emit match:new from matchService when a new suggestion is created

@@ -1,11 +1,67 @@
-// User repository — Phase 1 implementation
-// Direct DB queries. Called by services ONLY.
+import { User, IUser } from '../models/User.model';
+import { AppError } from '../utils/AppError';
 
 export class UserRepository {
-  // TODO Phase 1: findById(id: string): Promise<IUser | null>
-  // TODO Phase 1: findByPhone(phone: string): Promise<IUser | null>
-  // TODO Phase 1: upsertByPhone(phone: string): Promise<IUser>
-  // TODO Phase 1: update(id: string, data: Partial<IUser>): Promise<IUser>
+  async findByPhone(phone: string): Promise<IUser | null> {
+    return User.findOne({ phone });
+  }
+
+  async findById(id: string): Promise<IUser | null> {
+    return User.findById(id);
+  }
+
+  async findByEntityId(entityId: string): Promise<IUser[]> {
+    return User.find({ entityId });
+  }
+
+  /**
+   * Upsert a user by phone.
+   * Creates if not found, returns existing if found.
+   */
+  async upsertByPhone(
+    phone: string,
+    entityId: string,
+    role: 'primary' | 'partner',
+  ): Promise<IUser> {
+    const existing = await User.findOne({ phone });
+    if (existing) {
+      return existing;
+    }
+
+    return User.create({ phone, entityId, role, isPhoneVerified: false });
+  }
+
+  async markVerified(phone: string): Promise<IUser> {
+    const user = await User.findOneAndUpdate(
+      { phone },
+      { isPhoneVerified: true },
+      { new: true },
+    );
+    if (!user) {
+      throw new AppError(`User not found for phone: ${phone}`, 404, 'USER_NOT_FOUND');
+    }
+    return user;
+  }
+
+  async saveRefreshTokenHash(userId: string, hash: string): Promise<void> {
+    await User.findByIdAndUpdate(userId, { refreshTokenHash: hash });
+  }
+
+  async clearRefreshToken(userId: string): Promise<void> {
+    await User.findByIdAndUpdate(userId, { $unset: { refreshTokenHash: 1 } });
+  }
+
+  async findByIdWithRefreshToken(userId: string): Promise<IUser & { refreshTokenHash?: string } | null> {
+    return User.findById(userId).select('+refreshTokenHash');
+  }
+
+  async update(id: string, data: Partial<IUser>): Promise<IUser> {
+    const user = await User.findByIdAndUpdate(id, data, { new: true });
+    if (!user) {
+      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+    }
+    return user;
+  }
 }
 
 export const userRepository = new UserRepository();

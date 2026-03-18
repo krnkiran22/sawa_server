@@ -8,7 +8,7 @@ declare global {
     interface Request {
       user?: {
         userId: string;
-        coupleId?: string;
+        entityId?: string;
       };
     }
   }
@@ -36,6 +36,6 @@ export const authenticate = (
   }
 
   const payload = verifyAccessToken(token);
-  req.user = { userId: payload.userId, coupleId: payload.coupleId };
+  req.user = { userId: payload.userId, entityId: payload.entityId };
   next();
 };

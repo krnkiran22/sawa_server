@@ -109,6 +109,16 @@
 
 ---
 
+## 11. Frontend UI Rules — CRITICAL
+
+- **NEVER change any frontend UI design, layout, styles, or component structure.**
+- The frontend code is design-final. Only wire up API calls in the minimal possible way.
+- You may only touch `src/config/env.ts`, `src/Service/Api.ts`, Redux slices, and screen files **only** to add/replace API call logic — never to change JSX or styles.
+- All API integration must go through `src/Service/Api.ts` using the existing axios instance.
+- Do not install new frontend packages unless strictly needed for API integration.
+
+---
+
 ## 10. Documentation Rules
 
 - **Every change must be logged** in `CHANGELOG.md` with date, author context, and description.

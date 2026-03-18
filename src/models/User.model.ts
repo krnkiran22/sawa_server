@@ -1,11 +1,11 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Schema, Document, Types } from 'mongoose';
 
 export interface IUser extends Document {
   phone: string;
-  email?: string;
-  passwordHash?: string;
+  entityId: string;          // shared couple entity ID
   isPhoneVerified: boolean;
   refreshTokenHash?: string;
+  role: 'primary' | 'partner'; // which seat in the couple
   createdAt: Date;
   updatedAt: Date;
 }
@@ -18,15 +18,10 @@ const UserSchema = new Schema<IUser>(
       unique: true,
       trim: true,
     },
-    email: {
+    entityId: {
       type: String,
-      sparse: true,
-      lowercase: true,
-      trim: true,
-    },
-    passwordHash: {
-      type: String,
-      select: false, // Never returned in queries by default
+      required: true,
+      index: true,
     },
     isPhoneVerified: {
       type: Boolean,
@@ -35,6 +30,11 @@ const UserSchema = new Schema<IUser>(
     refreshTokenHash: {
       type: String,
       select: false,
+    },
+    role: {
+      type: String,
+      enum: ['primary', 'partner'],
+      required: true,
     },
   },
   {
