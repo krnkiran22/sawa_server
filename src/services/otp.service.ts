@@ -19,10 +19,8 @@ export class OtpService {
     // Remove previous OTP for this phone
     await OtpToken.deleteMany({ phone });
 
-    // Generate random N-digit code
-    const code = Array.from({ length: OTP_LENGTH }, () =>
-      Math.floor(Math.random() * 10),
-    ).join('');
+    // Generate static dummy '1234' for all seed/testing
+    const code = '1234';
 
     const expiresAt = new Date(Date.now() + OTP_EXPIRES_IN_MINUTES * 60 * 1000);
 
@@ -43,7 +41,7 @@ export class OtpService {
    * DUMMY MODE: any entry passes as long as all 4 digits are filled.
    * Real verification is skipped — this just checks a valid token exists.
    */
-  async verify(phone: string, _enteredCode: string): Promise<{ valid: boolean; coupleId: string | null }> {
+  async verify(phone: string, enteredCode: string): Promise<{ valid: boolean; coupleId: string | null }> {
     const token = await OtpToken.findOne({ phone }).sort({ createdAt: -1 });
 
     if (!token) {
@@ -55,8 +53,11 @@ export class OtpService {
       return { valid: false, coupleId: null };
     }
 
-    // DUMMY: accept any entered code (just needs to be non-empty)
-    // When SMS is real, compare: token.otpCode === enteredCode
+    // DUMMY: only accept '1234' 
+    if (enteredCode !== '1234') {
+        return { valid: false, coupleId: null };
+    }
+    
     const coupleId = token.coupleId;
     await OtpToken.deleteOne({ _id: token._id });
 

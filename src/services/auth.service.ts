@@ -160,6 +160,67 @@ export class AuthService {
   async logout(userId: string): Promise<void> {
     await userRepository.clearRefreshToken(userId);
   }
+  /**
+   * LOGIN STEP 1 — Send OTP for Login
+   * Accepts just one phone number, checks if user exists.
+   * If yes, generates a dummy OTP.
+   */
+  async loginSendOtp(phone: string): Promise<{ coupleId: string }> {
+    const user = await userRepository.findByPhone(phone);
+    if (!user) {
+      throw new AppError('No account found with this number. Please sign up first.', 404, 'USER_NOT_FOUND');
+    }
+
+    await otpService.generateAndStore(phone, user.coupleId);
+    logger.info(`[AuthService] Login OTP issued for user: ${phone}, coupleId: ${user.coupleId}`);
+
+    return { coupleId: user.coupleId };
+  }
+
+  /**
+   * LOGIN STEP 2 — Verify OTP for Login (DUMMY MODE)
+   * Verifies the single OTP and issues JWT token for the user.
+   */
+  async loginVerifyOtp(
+    phone: string,
+    otp: string
+  ): Promise<{
+    coupleId: string;
+    token: TokenPair;
+  }> {
+    const result = await otpService.verify(phone, otp);
+
+    if (!result.valid || !result.coupleId) {
+      throw new AppError('Invalid or expired OTP', 400, 'INVALID_OTP');
+    }
+
+    const user = await userRepository.findByPhone(phone);
+    if (!user) {
+      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+    }
+
+    const accessToken = signAccessToken({
+      userId: user._id.toString(),
+      coupleId: user.coupleId,
+    });
+    
+    const refreshToken = signRefreshToken({
+      userId: user._id.toString(),
+      coupleId: user.coupleId,
+    });
+
+    await userRepository.saveRefreshTokenHash(
+      user._id.toString(),
+      hashToken(refreshToken)
+    );
+
+    logger.info(`[AuthService] User logged in successfully. coupleId: ${user.coupleId}`);
+
+    return {
+      coupleId: user.coupleId,
+      token: { accessToken, refreshToken },
+    };
+  }
 }
 
 const hashToken = (token: string): string =>

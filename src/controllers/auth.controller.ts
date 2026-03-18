@@ -37,10 +37,21 @@ const RefreshSchema = z.object({
   refreshToken: z.string().min(1, 'Refresh token is required'),
 });
 
+const LoginSendOtpSchema = z.object({
+  phone: z.string().min(10).max(15).regex(/^\d+$/),
+});
+
+const LoginVerifyOtpSchema = z.object({
+  phone: z.string().min(10).max(15).regex(/^\d+$/),
+  otp: z.string().length(4).regex(/^\d+$/),
+});
+
 // ─── Validation Middleware (exported so routes can use them) ─────────────────
 export const validateSendOtp = validate(SendOtpSchema);
 export const validateVerifyOtp = validate(VerifyOtpSchema);
 export const validateRefresh = validate(RefreshSchema);
+export const validateLoginSendOtp = validate(LoginSendOtpSchema);
+export const validateLoginVerifyOtp = validate(LoginVerifyOtpSchema);
 
 // ─── Controllers ────────────────────────────────────────────────────────────
 
@@ -110,6 +121,45 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
     res,
     data: { accessToken: result.accessToken },
     message: 'Token refreshed',
+  });
+};
+
+/**
+ * POST /api/v1/auth/login-send-otp
+ * Body: { phone }
+ */
+export const loginSendOtp = async (req: Request, res: Response): Promise<void> => {
+  const { phone } = req.body as z.infer<typeof LoginSendOtpSchema>;
+  const result = await authService.loginSendOtp(phone);
+  
+  sendSuccess({
+    res,
+    statusCode: 200,
+    message: 'Login OTP sent',
+    data: {
+      coupleId: result.coupleId,
+      ...(process.env.NODE_ENV !== 'production' && { _devNote: 'Use any 4-digit code to verify in dummy mode' }),
+    },
+  });
+};
+
+/**
+ * POST /api/v1/auth/login-verify-otp
+ * Body: { phone, otp }
+ */
+export const loginVerifyOtp = async (req: Request, res: Response): Promise<void> => {
+  const { phone, otp } = req.body as z.infer<typeof LoginVerifyOtpSchema>;
+  const result = await authService.loginVerifyOtp(phone, otp);
+
+  sendSuccess({
+    res,
+    statusCode: 200,
+    message: 'Login successful',
+    data: {
+      coupleId: result.coupleId,
+      accessToken: result.token.accessToken,
+      refreshToken: result.token.refreshToken,
+    },
   });
 };
 
