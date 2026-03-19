@@ -9,7 +9,10 @@ export const getNotifications = async (req: Request, res: Response): Promise<voi
   const me = await Couple.findOne({ coupleId });
   if (!me) throw new AppError('Couple profile not found', 404);
 
-  const notifications = await Notification.find({ recipient: me._id })
+  // Query matching either our _id or our coupleId string
+  const notifications = await Notification.find({ 
+    $or: [{ recipient: me._id }, { recipient: me.coupleId as any }] 
+  })
     .populate('sender', 'profileName primaryPhoto')
     .sort({ createdAt: -1 })
     .limit(50);
@@ -28,6 +31,9 @@ export const getUnreadCount = async (req: Request, res: Response): Promise<void>
    const me = await Couple.findOne({ coupleId });
    if (!me) throw new AppError('Couple profile not found', 404);
    
-   const count = await Notification.countDocuments({ recipient: me._id, read: false });
+   const count = await Notification.countDocuments({ 
+     $or: [{ recipient: me._id }, { recipient: me.coupleId as any }], 
+     read: false 
+   });
    sendSuccess({ res, statusCode: 200, data: { count } });
 };
