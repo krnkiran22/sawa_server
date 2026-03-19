@@ -45,8 +45,8 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
           chatType: data.chatType || 'private',
           chatId: data.chatId,
           sender: couple._id,
-          senderUser: user._id,
-          senderName: user.name || 'Unknown',
+          senderUser: socket.userId,
+          senderName: socket.userName || 'Unknown',
           content: data.content,
           contentType: data.contentType || 'text',
         });
@@ -57,8 +57,8 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
           chatId: data.chatId,
           senderCoupleId: socket.coupleId, // Used for local UI side determination (left/right)
           senderUserId: socket.userId,   // Used for showing who in the couple sent it
-          senderName: message.senderName, // Name to display (X, Y, A, B)
-          senderRole: user.role,         // Used for color determination (blue/pink vs warm/cool)
+          senderName: socket.userName || 'Unknown', // Name to display (X, Y, A, B)
+          senderRole: socket.userRole,         // Used for color determination (blue/pink vs warm/cool)
           content: data.content,
           contentType: data.contentType ?? 'text',
           timestamp: message.createdAt.toISOString(),

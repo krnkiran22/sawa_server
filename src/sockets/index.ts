@@ -11,6 +11,7 @@ declare module 'socket.io' {
     userId?: string;
     coupleId?: string;
     userName?: string;
+    userRole?: string;
   }
 }
 
@@ -37,13 +38,19 @@ export const createSocketServer = (httpServer: HTTPServer): SocketIOServer => {
       socket.userId = payload.userId;
       socket.coupleId = payload.coupleId;
 
-      // Fetch user name for display
-      import('../models/User.model').then(({ User }) => {
-        User.findById(payload.userId).then((user) => {
-           if (user) socket.userName = user.name || 'Unknown';
-           next();
-        }).catch(() => next());
-      }).catch(() => next());
+      // Fetch user name and role for display
+      import('../models/User.model').then(async ({ User }) => {
+        try {
+          const user = await User.findById(payload.userId);
+          if (user) {
+            socket.userName = user.name || 'Unknown';
+            socket.userRole = user.role;
+          }
+          next();
+        } catch (err) {
+          next();
+        }
+      });
 
     } catch {
       next(new Error('Invalid authentication token'));
