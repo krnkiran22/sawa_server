@@ -4,6 +4,8 @@ import { logger } from '../utils/logger';
 import { Message } from '../models/Message.model';
 import { Couple } from '../models/Couple.model';
 import { User } from '../models/User.model';
+import { Notification } from '../models/Notification.model';
+import { Match } from '../models/Match.model';
 
 /**
  * Register private & group chat socket event handlers.
@@ -63,11 +65,57 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
         });
 
         logger.info(`Message saved and broadcasted to chat:${data.chatId}`);
+
+        // ─── NEW: Send Notification to recipient ───
+        // Find the "other" couple in this match
+        const match = await Match.findById(data.chatId);
+        if (match) {
+           const recipientId = match.couple1.equals(couple._id) ? match.couple2 : match.couple1;
+           await Notification.create({
+             recipient: recipientId,
+             sender: couple._id,
+             type: 'message',
+             title: `New Message from ${couple.profileName}`,
+             message: data.content.length > 50 ? data.content.substring(0, 47) + '...' : data.content,
+             data: { matchId: data.chatId, coupleName: couple.profileName }
+           });
+        }
+
       } catch (err) {
         logger.error('Failed to handle CHAT_MESSAGE socket event:', err);
       }
     },
   );
+
+  // Mark message as read / "Seen" feature
+  socket.on(SOCKET_EVENTS.CHAT_READ, async (data: { chatId: string }) => {
+    if (!socket.userId || !socket.coupleId) return;
+
+    try {
+      const couple = await Couple.findOne({ coupleId: socket.coupleId });
+      if (!couple) return;
+
+      // Update all unread messages in this chat where we are NOT the sender
+      await Message.updateMany(
+        { 
+          chatId: data.chatId, 
+          sender: { $ne: couple._id },
+          readBy: { $ne: couple._id }
+        },
+        { $addToSet: { readBy: couple._id } }
+      );
+
+      // Broadcast "Seen" event to the room
+      io.to(`chat:${data.chatId}`).emit(SOCKET_EVENTS.CHAT_READ, {
+        chatId: data.chatId,
+        readByCoupleId: socket.coupleId
+      });
+
+      logger.debug(`Chat ${data.chatId} marked as read by ${socket.coupleId}`);
+    } catch (err) {
+      logger.error('Failed to handle CHAT_READ socket event:', err);
+    }
+  });
 
   // Typing indicators
   socket.on(SOCKET_EVENTS.CHAT_TYPING, (data: { chatId: string }) => {

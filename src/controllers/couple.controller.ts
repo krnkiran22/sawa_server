@@ -140,3 +140,12 @@ export const updateMyCouple = async (_req: Request, _res: Response) => {
 export const invitePartner = async (_req: Request, _res: Response) => {
   // Stub for partner invite features (if needed later)
 };
+
+export const getCoupleById = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const couple = await coupleService.getCouple(id);
+  if (!couple) {
+    throw new AppError('Couple profile not found', 404);
+  }
+  sendSuccess({ res, data: { couple } });
+};

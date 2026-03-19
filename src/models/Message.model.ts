@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document, Types } from 'mongoose';
 
-export type ContentType = 'text' | 'image' | 'gif';
+export type ContentType = 'text' | 'image' | 'gif' | 'prompt';
 export type ChatType = 'private' | 'group';
 
 export interface IMessage extends Document {
@@ -30,7 +30,7 @@ const MessageSchema = new Schema<IMessage>(
     content: { type: String, required: true, trim: true, maxlength: 2000 },
     contentType: {
       type: String,
-      enum: ['text', 'image', 'gif'],
+      enum: ['text', 'image', 'gif', 'prompt'],
       default: 'text',
     },
     readBy: [{ type: Schema.Types.ObjectId, ref: 'Couple' }],

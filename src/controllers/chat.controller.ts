@@ -33,6 +33,7 @@ export const getPrivateMessages = async (req: Request, res: Response): Promise<v
       senderRole: m.senderUser?.role,
       senderCoupleId: m.sender?.coupleId, // The shared string ID (X-Y)
       timestamp: m.createdAt,
+      readBy: m.readBy || [],
     };
   });
 
@@ -90,6 +91,7 @@ export const getGroupMessages = async (req: Request, res: Response): Promise<voi
       senderRole: m.senderUser?.role,
       senderCoupleId: m.sender?.coupleId,
       timestamp: m.createdAt,
+      readBy: m.readBy || [],
     };
   });
 

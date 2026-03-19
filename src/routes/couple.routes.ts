@@ -14,6 +14,7 @@ import {
   validateSubmitAnswers,
   validateCompleteOnboarding,
   completeOnboarding,
+  getCoupleById,
 } from '../controllers/couple.controller';
 
 const router = Router();
@@ -22,6 +23,9 @@ router.use(authenticate);
 
 // GET /api/v1/couples/me
 router.get('/me', asyncHandler(getMyCouple));
+
+// GET /api/v1/couples/:id
+router.get('/:id', asyncHandler(getCoupleById));
 
 // POST /api/v1/couples/onboarding/profile
 router.post('/onboarding/profile', validateSetupProfile, asyncHandler(setupProfile));
