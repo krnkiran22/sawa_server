@@ -8,6 +8,7 @@ import {
   getMatches,
   getInsights,
   validateMatchAction,
+  refreshDiscovery,
 } from '../controllers/match.controller';
 
 const router = Router();
@@ -22,6 +23,9 @@ router.post('/say-hello', validateMatchAction, asyncHandler(sayHello));
 
 // POST /api/v1/matches/skip
 router.post('/skip', validateMatchAction, asyncHandler(skipCouple));
+
+// POST /api/v1/matches/refresh-discovery
+router.post('/refresh-discovery', asyncHandler(refreshDiscovery));
 
 // GET /api/v1/matches
 router.get('/', asyncHandler(getMatches));

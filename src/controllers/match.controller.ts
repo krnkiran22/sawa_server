@@ -58,6 +58,12 @@ export const getMatches = async (req: Request, res: Response): Promise<void> => 
   sendSuccess({ res, statusCode: 200, data: { matches } });
 };
 
+export const refreshDiscovery = async (req: Request, res: Response): Promise<void> => {
+   const { coupleId } = req.user!;
+   await matchService.refreshDiscovery(coupleId!);
+   sendSuccess({ res, statusCode: 200, message: 'Discovery feed reset successful' });
+};
+
 export const getInsights = async (_req: Request, _res: Response): Promise<void> => {
   // Returns insights comparing the logged in couple with a target couple
 };

@@ -172,6 +172,23 @@ export class MatchService {
       return m.couple1._id.toString() === me._id.toString() ? m.couple2 : m.couple1;
     });
   }
+
+  /**
+   * Refresh discovery feed by clearing all SKIPPED matches for the current couple.
+   * This allows them to see those couples again.
+   */
+  async refreshDiscovery(requestingCoupleId: string) {
+    const me = await Couple.findOne({ coupleId: requestingCoupleId });
+    if (!me) throw new AppError('Profile not found', 404);
+
+    // Delete all matches with status 'skipped' where this couple is common
+    await Match.deleteMany({
+      $or: [{ couple1: me._id }, { couple2: me._id }],
+      status: 'skipped'
+    });
+
+    return { success: true };
+  }
 }
 
 export const matchService = new MatchService();
