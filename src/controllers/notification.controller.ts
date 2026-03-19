@@ -22,3 +22,12 @@ export const markAsRead = async (req: Request, res: Response): Promise<void> => 
   await Notification.findByIdAndUpdate(id, { read: true });
   sendSuccess({ res, statusCode: 200, message: 'Notification marked as read' });
 };
+
+export const getUnreadCount = async (req: Request, res: Response): Promise<void> => {
+   const { coupleId } = req.user!;
+   const me = await Couple.findOne({ coupleId });
+   if (!me) throw new AppError('Couple profile not found', 404);
+   
+   const count = await Notification.countDocuments({ recipient: me._id, read: false });
+   sendSuccess({ res, statusCode: 200, data: { count } });
+};
