@@ -20,16 +20,18 @@ export class CoupleService {
       relationshipStatus?: string;
     }
   ) {
+    logger.info(`[CoupleService.setupProfile] START - coupleId: ${coupleId}`);
+
     // 1. Update primary user's details
-    await User.findByIdAndUpdate(primaryUserId, {
+    const primaryUpdate = await User.findByIdAndUpdate(primaryUserId, {
       name: data.yourName,
       dob: data.yourDob || undefined,
       email: data.yourEmail || undefined,
     });
+    logger.info(`[CoupleService.setupProfile] Primary user update: ${!!primaryUpdate} (${primaryUserId})`);
 
-    // 2. Find and update the partner user attached to the same coupleId
-    // The partner could theoretically not be fully onboarded yet, but the user document exists from OTP send
-    await User.findOneAndUpdate(
+    // 2. Find and update the partner user
+    const partnerUpdate = await User.findOneAndUpdate(
       { coupleId, role: 'partner' },
       {
         name: data.partnerName,
@@ -37,13 +39,12 @@ export class CoupleService {
         email: data.partnerEmail || undefined,
       }
     );
+    logger.info(`[CoupleService.setupProfile] Partner user update: ${!!partnerUpdate}`);
 
-    // 3. Upsert the Couple document itself (first onboarding step)
+    // 3. Upsert the Couple document
     const existingCouple = await Couple.findOne({ coupleId });
     if (!existingCouple) {
-      // Find the partner to link object IDs
       const partner = await User.findOne({ coupleId, role: 'partner' });
-
       await Couple.create({
         coupleId,
         partner1: primaryUserId,
@@ -54,12 +55,13 @@ export class CoupleService {
         secondaryPhotos: [],
         isProfileComplete: false,
       });
-      logger.info(`[CoupleService] Couple doc created for coupleId: ${coupleId}`);
+      logger.info(`[CoupleService.setupProfile] Couple document created for: ${coupleId}`);
     } else {
       await Couple.findByIdAndUpdate(existingCouple._id, {
         profileName: `${data.yourName} & ${data.partnerName}`,
         relationshipStatus: data.relationshipStatus,
       });
+      logger.info(`[CoupleService.setupProfile] Existing Couple document updated: ${existingCouple._id}`);
     }
   }
 
