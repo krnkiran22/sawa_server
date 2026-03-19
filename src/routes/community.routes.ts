@@ -10,7 +10,8 @@ import {
   leaveCommunity,
   inviteToCommunity,
   deleteCommunity,
-  getInviteableCouples, // This is already present in the original file
+  getInviteableCouples,
+  processJoinRequest,
   validateCreateCommunity,
   validateJoinCommunity,
 } from '../controllers/community.controller';
@@ -42,6 +43,9 @@ router.post('/:id/leave', asyncHandler(leaveCommunity));
 
 // DELETE /api/v1/communities/:id
 router.delete('/:id', asyncHandler(deleteCommunity));
+
+// POST /api/v1/communities/:id/requests/:requestId/:decision
+router.post('/:id/requests/:requestId/:decision', asyncHandler(processJoinRequest));
 
 // GET /api/v1/communities/:id/inviteable
 router.get('/:id/inviteable', asyncHandler(getInviteableCouples));

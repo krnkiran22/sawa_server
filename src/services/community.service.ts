@@ -138,7 +138,7 @@ export class CommunityService {
 
           if (match) {
             await Notification.create({
-              recipient: targetCoupleId,
+              recipient: new mongoose.Types.ObjectId(targetCoupleId),
               sender: me._id,
               type: 'community',
               title: 'Community Invitation',
@@ -169,29 +169,55 @@ export class CommunityService {
       return { status: 'already-member' };
     }
 
-    // Usually you'd push to joinRequests and let admin approve,
-    // but for UI flow we will just add them immediately.
-    community.members.push(me._id as any);
-    await community.save();
+    // Check if there is an active invite for this user
+    const invitation = await Notification.findOne({
+      $or: [{ recipient: me._id }, { recipient: me.coupleId as any }],
+      type: 'community',
+      'data.communityId': community._id,
+    });
 
-    // ─── Phase 2: System Message & Notification ───
-    const io = (global as any).io;
-    if (io) {
-      const systemMessage = {
-        _id: new mongoose.Types.ObjectId(),
-        chatId: community._id,
-        chatType: 'group',
-        senderCoupleId: 'system',
-        content: `${me.profileName} joined the community`,
-        contentType: 'text',
-        timestamp: new Date().toISOString(),
-        isSystem: true
-      };
-      io.to(`chat:${community._id}`).emit('chat:message', systemMessage);
+    if (invitation) {
+       // Invited! Accept immediately.
+       community.members.push(me._id as any);
+       await community.save();
+       
+       const io = (global as any).io;
+       if (io) {
+          io.to(`chat:${community._id}`).emit('chat:message', {
+             _id: new mongoose.Types.ObjectId(),
+             chatId: community._id,
+             chatType: 'group',
+             senderCoupleId: 'system',
+             content: `${me.profileName} accepted the invite and joined the community`,
+             contentType: 'text',
+             timestamp: new Date().toISOString(),
+             isSystem: true
+          });
+       }
+       return { status: 'joined', message: 'Joined community' };
     }
 
+    // Otherwise, it's a normal join request
+    if (community.joinRequests.includes(me._id as any)) {
+      return { status: 'already-requested' };
+    }
 
-    return { status: 'joined', message: note ? 'Join request sent with note' : 'Joined community' };
+    community.joinRequests.push(me._id as any);
+    await community.save();
+
+    // Send notifications to all admins
+    for (const adminId of community.admins) {
+      await Notification.create({
+        recipient: adminId,
+        sender: me._id,
+        type: 'community',
+        title: 'New Join Request',
+        message: `${me.profileName} wants to join ${community.name}${note ? `: "${note}"` : ''}`,
+        data: { communityId: community._id, requestId: me._id }
+      });
+    }
+
+    return { status: 'requested', message: 'Join request sent to host.' };
   }
 
   async inviteToCommunity(requestingCoupleId: string, communityId: string, invitedCoupleIds: string[]) {
@@ -213,7 +239,7 @@ export class CommunityService {
 
           if (match) {
             await Notification.create({
-              recipient: targetCoupleId,
+              recipient: new mongoose.Types.ObjectId(targetCoupleId),
               sender: me._id,
               type: 'community',
               title: 'Community Invitation',
@@ -229,6 +255,64 @@ export class CommunityService {
     return { success: true };
   }
 
+  async processJoinRequest(requestingCoupleId: string, communityId: string, requestId: string, decision: 'accept' | 'reject') {
+    const me = await Couple.findOne({ coupleId: requestingCoupleId });
+    if (!me) throw new AppError('Profile not found', 404);
+
+    const community = await Community.findById(communityId);
+    if (!community) throw new AppError('Community not found', 404);
+
+    const isAdmin = community.admins.some(a => a.toString() === me._id.toString());
+    if (!isAdmin) throw new AppError('Only administrators can approve join requests', 403);
+
+    community.joinRequests = community.joinRequests.filter(req => req.toString() !== requestId);
+
+    if (decision === 'accept') {
+       if (!community.members.some(m => m.toString() === requestId)) {
+          community.members.push(new mongoose.Types.ObjectId(requestId) as any);
+       }
+       await community.save();
+
+       const requestedCouple = await Couple.findById(requestId);
+       if (requestedCouple) {
+          await Notification.create({
+             recipient: requestedCouple._id,
+             sender: me._id,
+             type: 'community',
+             title: 'Request Accepted!',
+             message: `Your request to join ${community.name} was accepted!`,
+             data: { communityId: community._id, name: community.name }
+          });
+
+          const io = (global as any).io;
+          if (io) {
+             io.to(`chat:${community._id}`).emit('chat:message', {
+                _id: new mongoose.Types.ObjectId(),
+                chatId: community._id,
+                chatType: 'group',
+                senderCoupleId: 'system',
+                content: `${requestedCouple.profileName} just joined the community!`,
+                contentType: 'text',
+                timestamp: new Date().toISOString(),
+                isSystem: true
+             });
+          }
+       }
+       return { message: 'Request accepted' };
+    } else {
+       await community.save();
+       await Notification.create({
+          recipient: new mongoose.Types.ObjectId(requestId),
+          sender: me._id,
+          type: 'system',
+          title: 'Request Declined',
+          message: `Your request to join ${community.name} was declined by the host.`,
+          data: { communityId: community._id }
+       });
+       return { message: 'Request rejected' };
+    }
+  }
+
   async getCommunityDetail(requestingCoupleId: string, communityId: string) {
     const me = await Couple.findOne({ coupleId: requestingCoupleId });
     if (!me) throw new AppError('Profile not found', 404);
@@ -239,12 +323,11 @@ export class CommunityService {
     const isMember = c.members.some(m => m._id.toString() === me._id.toString());
     const isAdmin = c.admins.some(a => a.toString() === me._id.toString());
     
-    // Check if there's a pending invitation for this couple
+    // Check if there's a pending invitation for this couple (even if they read the notification already)
     const invitation = await Notification.findOne({
-      recipient: me._id,
+      $or: [{ recipient: me._id }, { recipient: me.coupleId as any }],
       type: 'community',
       'data.communityId': c._id,
-      read: false
     });
 
     return {

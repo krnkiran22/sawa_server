@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { communityService } from '../services/community.service';
 import { sendSuccess } from '../utils/response';
 import { validate } from '../middleware/validate';
+import { AppError } from '../utils/AppError';
 
 // ─── Validation ─────────────────────────────────────────────────────────────
 
@@ -110,4 +111,17 @@ export const getInviteableCouples = async (req: Request, res: Response): Promise
   const couples = await communityService.getInviteableCouples(coupleId!, id);
 
   sendSuccess({ res, statusCode: 200, data: { couples } });
+};
+
+export const processJoinRequest = async (req: Request, res: Response): Promise<void> => {
+  const { coupleId } = req.user!;
+  const { id, requestId, decision } = req.params;
+
+  if (decision !== 'accept' && decision !== 'reject') {
+    throw new AppError('Invalid decision', 400);
+  }
+
+  const result = await communityService.processJoinRequest(coupleId!, id, requestId, decision);
+
+  sendSuccess({ res, statusCode: 200, message: result.message });
 };
