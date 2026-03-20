@@ -23,6 +23,7 @@ const envSchema = z.object({
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional(),
   RENDER_EXTERNAL_URL: z.string().optional(),
+  GROQ_API_KEY: z.string().min(1, 'GROQ_API_KEY is required'),
 });
 
 const _parsed = envSchema.safeParse(process.env);

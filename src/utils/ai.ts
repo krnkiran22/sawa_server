@@ -1,8 +1,9 @@
 import OpenAI from 'openai';
 import { logger } from './logger';
+import { env } from '../config/env';
 
 const client = new OpenAI({
-  apiKey: process.env.GROQ_API_KEY,
+  apiKey: env.GROQ_API_KEY,
   baseURL: 'https://api.groq.com/openai/v1',
 });
 
