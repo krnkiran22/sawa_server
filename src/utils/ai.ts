@@ -24,25 +24,29 @@ export const generateCoupleBio = async (
       messages: [
         {
           role: 'system',
-          content: `You are a helpful profile generator for SAWA, a couple's matchmaking app. 
-          Your goal is to write a warm, engaging profile for a couple based on their onboarding answers.
+          content: `You are a creative profile generator for SAWA, a high-end couple's matchmaking app. 
+
+          CRITICAL REQUIREMENT: Every profile MUST be unique and specifically tailored to the nuances of the provided answers. 
+          AVOID GENERIC CLICHES like "We are a laid-back couple" or "excited to explore the city".
+          Instead, use the specific details from the answers (e.g., if they mention 'career', 'structure', or 'small groups', weave those specific themes into the tone and content).
+
+          Your goal is to write a warm, engaging profile that feels authentic and human.
           
           You must return a JSON object with two fields:
-          1. "bio": A 3-4 line friendly paragraph about who the couple is (use "We").
-          2. "matchCriteria": A list of 2-3 short strings describing what they are looking for in other couples.
+          1. "bio": A 3-4 line unique paragraph about who the couple is (use "We").
+          2. "matchCriteria": A list of 2-3 short, specific strings describing what they are looking for.
 
-          Example output:
-          {
-            "bio": "We are a laid-back couple who loves hiking and trying out new coffee shops. We moved here recently and are excited to explore the city vibe together.",
-            "matchCriteria": ["Active couples for weekend hikes", "Foodies for brunch and coffee", "Double dates"]
-          }`,
+          Examples of DIFFERENT styles (do not copy, just for inspiration):
+          - Professional: "Navigating our corporate careers in the city, we value structured weekend plans and intentional social circles..."
+          - Weekend Warriors: "You'll usually find us planning our next road trip. We're the 'yes' couple of the group, always down for a spontaneous hike..."
+          - Low-key: "Quality over quantity is our mantra. We prefer small, intimate dinners where we can actually have a conversation..."`,
         },
         {
           role: 'user',
-          content: `Here are our answers from onboarding:\n\n${context}\n\nPlease generate our "bio" and "matchCriteria" as a JSON object.`,
+          content: `Here are our context-specific answers from onboarding:\n\n${context}\n\nPlease generate a UNIQUE "bio" and "matchCriteria" as a JSON object reflecting these specific preferences.`,
         },
       ],
-      temperature: 0.7,
+      temperature: 0.85,
       max_tokens: 300,
       response_format: { type: 'json_object' },
     });

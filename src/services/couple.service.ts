@@ -126,34 +126,42 @@ export class CoupleService {
       };
 
       // Map option IDs to friendly labels for better LLM context
+      // Including subtitles/descriptions where they add significant flavor
       const optionLabelMap: Record<string, string> = {
-        // Q1
-        'q1-career': 'Building careers',
-        'q1-family': 'Family first',
-        'q1-settled': 'Newly settled',
-        'q1-living': 'Living it up',
-        // Q2
-        'q2-hosts': 'The Hosts',
-        'q2-yes-couple': "The 'yes' couple",
-        'q2-planners': 'The Planners',
-        'q2-explorers': 'The Explorers',
-        // Q4
-        'q4-once-month': 'Once a month',
-        'q4-twice-month': 'Twice a month',
-        'q4-once-week': 'Once a week',
-        'q4-when-fits': 'Whenever it fits',
-        // Q5
-        'q5-similar-stage': 'Similar life stage',
+        // Q1: Life Stage
+        'q1-career': 'Building careers (Work is a big part of our lives right now)',
+        'q1-family': 'Family first (Home and the people in it are priority #1)',
+        'q1-settled': 'Newly settled (Finding our footing in a new place)',
+        'q1-living': 'Living it up (Making the most of our current stage)',
+        // Q2: Personality
+        'q2-hosts': "The Hosts (Prefer inviting people over vs going out)",
+        'q2-yes-couple': "The 'yes' couple (Usually up for whatever is on)",
+        'q2-planners': 'The Planners (Like to know what we are doing in advance)',
+        'q2-explorers': 'The Explorers (Always looking for something new to try)',
+        // Q3: Activities
+        'q3-dinners-home': 'Dinners at home',
+        'q3-restaurants': 'Exploring new restaurants',
+        'q3-outdoor': 'Outdoor activities/nature',
+        'q3-cultural': 'Cultural events/museums',
+        'q3-drinks': 'Casual drinks',
+        'q3-trips': 'Weekend trips/travel',
+        // Q4: Frequency
+        'q4-once-month': 'Meeting once a month (Quality over quantity)',
+        'q4-twice-month': 'Meeting twice a month',
+        'q4-once-week': 'Meeting once a week (Very social)',
+        'q4-when-fits': 'Meeting whenever it fits (Go with the flow)',
+        // Q5: Good Match
+        'q5-similar-stage': 'Matches in a similar life stage',
         'q5-shared-interests': 'Shared interests',
-        'q5-small-groups': 'Small groups',
+        'q5-small-groups': 'Small group settings',
         'q5-structured-plans': 'Structured plans',
         'q5-clear-boundaries': 'Clear boundaries',
         'q5-weekend-availability': 'Weekend availability',
-        // Q6
-        'q6-late-night': 'Late-night plans',
-        'q6-large-groups': 'Very large groups',
-        'q6-alcohol-centric': 'Alcohol-centric meetups',
-        'q6-last-minute': 'Last-minute plans',
+        // Q6: Avoid
+        'q6-late-night': 'Avoiding late-night plans',
+        'q6-large-groups': 'Avoiding very large groups',
+        'q6-alcohol-centric': 'Avoiding alcohol-centric meetups',
+        'q6-last-minute': 'Avoiding last-minute/spontaneous plans',
       };
 
       const qaData = answers.map((a) => ({
