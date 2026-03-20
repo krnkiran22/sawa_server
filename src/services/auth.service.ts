@@ -69,6 +69,11 @@ export class AuthService {
     coupleId: string;
     yourToken: TokenPair;
     partnerToken: TokenPair;
+    yourUser: {
+      id: string;
+      name: string;
+      role: string;
+    };
   }> {
     // Verify both OTPs (dummy: any non-empty code passes)
     const [yourResult, partnerResult] = await Promise.all([
@@ -130,6 +135,11 @@ export class AuthService {
       coupleId,
       yourToken: { accessToken: yourAccessToken, refreshToken: yourRefreshToken },
       partnerToken: { accessToken: partnerAccessToken, refreshToken: partnerRefreshToken },
+      yourUser: {
+        id: yourUser._id.toString(),
+        name: yourUser.name || '',
+        role: yourUser.role
+      }
     };
   }
 
@@ -190,6 +200,11 @@ export class AuthService {
     coupleId: string;
     token: TokenPair;
     profile: any;
+    user: {
+      id: string;
+      name: string;
+      role: string;
+    };
   }> {
     const result = await otpService.verify(phone, otp);
 
@@ -225,6 +240,11 @@ export class AuthService {
       coupleId: user.coupleId,
       token: { accessToken, refreshToken },
       profile: couple || null,
+      user: {
+        id: user._id.toString(),
+        name: user.name || '',
+        role: user.role
+      }
     };
   }
 }

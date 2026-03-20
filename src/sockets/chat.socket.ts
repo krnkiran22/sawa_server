@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import { SOCKET_EVENTS } from '../constants/socketEvents';
 import { logger } from '../utils/logger';
@@ -37,6 +38,12 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
       socket.join(`chat:${data.chatId}`);
 
       try {
+        // Validate data.chatId is valid ObjectId
+        if (!mongoose.Types.ObjectId.isValid(data.chatId)) {
+          logger.warn(`Invalid chatId received in CHAT_MESSAGE: ${data.chatId}`);
+          return;
+        }
+
         const user = await User.findById(socket.userId);
         if (!user) return;
 
@@ -64,7 +71,7 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
           senderName: couple.profileName || user.name || 'Unknown', 
           senderIndividualName: user.name || socket.userName || 'Unknown',
           senderRole: socket.userRole,
-          accent: socket.userRole === 'primary' ? '#B9B0A7' : '#2D3C62',
+          accent: socket.userRole === 'primary' ? '#2E98B8' : '#CF3CA4',
           content: data.content,
           contentType: data.contentType ?? 'text',
           audioDuration: data.audioDuration,
@@ -113,6 +120,12 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
     socket.join(`chat:${data.chatId}`);
 
     try {
+      // Validate data.chatId is valid ObjectId
+      if (!mongoose.Types.ObjectId.isValid(data.chatId)) {
+        logger.warn(`Invalid chatId received in CHAT_READ: ${data.chatId}`);
+        return;
+      }
+
       const couple = await Couple.findOne({ coupleId: socket.coupleId });
       if (!couple) return;
 

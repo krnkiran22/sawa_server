@@ -145,8 +145,8 @@ export class MatchService {
             recipient: me._id,
             sender: targetCouple._id,
             type: 'match',
-            title: "You've Matched!",
-            message: `You matched with ${targetCouple.profileName}! Say hello.`,
+            title: "You've Connected!",
+            message: `You connected with ${targetCouple.profileName}! Say hello.`,
             data: { matchId: existingMatch._id, coupleName: targetCouple.profileName }
           });
 
@@ -154,8 +154,8 @@ export class MatchService {
             recipient: targetCouple._id,
             sender: me._id,
             type: 'match',
-            title: "You've Matched!",
-            message: `You matched with ${me.profileName}! Say hello.`,
+            title: "You've Connected!",
+            message: `You connected with ${me.profileName}! Say hello.`,
             data: { matchId: existingMatch._id, coupleName: me.profileName }
           });
 
@@ -163,7 +163,10 @@ export class MatchService {
        }
       
       // If we already liked them, or already accepted
-      return { isMatch: existingMatch.status === 'accepted' };
+      return { 
+        isMatch: existingMatch.status === 'accepted',
+        matchId: existingMatch._id
+      };
     }
 
     // Otherwise, create a pending like
