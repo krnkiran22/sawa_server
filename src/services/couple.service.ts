@@ -2,6 +2,7 @@ import { Couple, ICouple, IOnboardingAnswer } from '../models/Couple.model';
 import { User } from '../models/User.model';
 import { AppError } from '../utils/AppError';
 import { logger } from '../utils/logger';
+import { Community } from '../models/Community.model';
 
 export class CoupleService {
   /**
@@ -242,11 +243,28 @@ export class CoupleService {
     return coupleDoc;
   }
 
-  async getCouple(coupleId: string): Promise<ICouple | null> {
-    return Couple.findOne({ coupleId })
+  async getCouple(coupleId: string): Promise<any | null> {
+    const couple = await Couple.findOne({ coupleId })
       .populate('partner1', 'name phone dob email')
       .populate('partner2', 'name phone dob email')
-      .exec();
+      .lean();
+    
+    if (!couple) return null;
+
+    // Fetch communities where they are members
+    const communityDocs = await Community.find({ members: couple._id });
+    const communities = communityDocs.map(c => ({
+      id: c._id,
+      title: c.name,
+      subtitle: c.city,
+      note: c.description,
+      imageUri: c.coverImageUrl
+    }));
+
+    return {
+      ...couple,
+      communities
+    };
   }
 
   async subscribe(coupleId: string): Promise<ICouple | null> {
