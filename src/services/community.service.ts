@@ -220,6 +220,49 @@ export class CommunityService {
     return { status: 'requested', message: 'Join request sent to host.' };
   }
 
+  async leaveCommunity(requestingCoupleId: string, communityId: string) {
+    const me = await Couple.findOne({ coupleId: requestingCoupleId });
+    if (!me) throw new AppError('Profile not found', 404);
+
+    const community = await Community.findById(communityId);
+    if (!community) throw new AppError('Community not found', 404);
+
+    community.members = community.members.filter(m => m.toString() !== me._id.toString());
+    
+    // If they were an admin, remove them
+    const wasAdmin = community.admins.some(a => a.toString() === me._id.toString());
+    community.admins = community.admins.filter(a => a.toString() !== me._id.toString());
+
+    // If community has no admins but still has members, appoint a new one
+    if (community.admins.length === 0 && community.members.length > 0) {
+      community.admins.push(community.members[0]);
+    }
+
+    if (community.members.length === 0) {
+      // Last person left, delete community?
+      await Community.findByIdAndDelete(communityId);
+      return { status: 'deleted' };
+    }
+
+    await community.save();
+
+    const io = (global as any).io;
+    if (io) {
+      io.to(`chat:${community._id}`).emit('chat:message', {
+        _id: new mongoose.Types.ObjectId(),
+        chatId: community._id,
+        chatType: 'group',
+        senderCoupleId: 'system',
+        content: `${me.profileName} left the community`,
+        contentType: 'text',
+        timestamp: new Date().toISOString(),
+        isSystem: true
+      });
+    }
+
+    return { status: 'left' };
+  }
+
   async inviteToCommunity(requestingCoupleId: string, communityId: string, invitedCoupleIds: string[]) {
     const me = await Couple.findOne({ coupleId: requestingCoupleId });
     if (!me || !me.profileName) throw new AppError('Profile not found', 404);

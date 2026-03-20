@@ -81,8 +81,13 @@ export const joinCommunity = async (req: Request, res: Response): Promise<void> 
   sendSuccess({ res, statusCode: 200, message: result.message, data: result });
 };
 
-export const leaveCommunity = async (_req: Request, _res: Response): Promise<void> => {
-  // Stub
+export const leaveCommunity = async (req: Request, res: Response): Promise<void> => {
+  const { coupleId } = req.user!;
+  const { id } = req.params;
+
+  const result = await communityService.leaveCommunity(coupleId!, id);
+
+  sendSuccess({ res, statusCode: 200, message: result.status === 'deleted' ? 'Community deleted as last member left' : 'Left community' });
 };
 
 export const inviteToCommunity = async (req: Request, res: Response): Promise<void> => {
