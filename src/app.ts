@@ -11,6 +11,7 @@ export const createApp = (): Application => {
   const app = express();
 
   // ─── Security ───────────────────────────────────────────────────────────────
+  app.set('trust proxy', 1);
   app.use(helmet());
 
   const allowedOrigins = env.CORS_ORIGINS.split(',').map((o) => o.trim());
