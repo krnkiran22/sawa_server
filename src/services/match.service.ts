@@ -189,32 +189,28 @@ export class MatchService {
    * Skip a couple
    */
   async skipCouple(requestingCoupleId: string, targetCoupleIdStr: string) {
-    const me = await Couple.findOne({ coupleId: requestingCoupleId });
+    // 1. We still need our own _id. Try to get it efficiently (just skip if not found)
+    const me = await Couple.findOne({ coupleId: requestingCoupleId }).select('_id');
     if (!me) throw new AppError('Profile not found', 404);
 
-    // Transient dummy support
-    // Try to find the target couple. We check BOTH _id (ObjectId) and coupleId (UUID).
-    let targetCouple;
-    if (mongoose.Types.ObjectId.isValid(targetCoupleIdStr)) {
-      targetCouple = await Couple.findById(targetCoupleIdStr);
-    } 
-    
-    if (!targetCouple) {
-      targetCouple = await Couple.findOne({ coupleId: targetCoupleIdStr });
+    // 2. We don't strictly need to verify the target couple exists if we just want to create a match record
+    // But we need their Mongo _id. If the targetCoupleIdStr is an ObjectId, we use it directly.
+    let targetId: any = targetCoupleIdStr;
+    if (!mongoose.Types.ObjectId.isValid(targetCoupleIdStr)) {
+       const target = await Couple.findOne({ coupleId: targetCoupleIdStr }).select('_id');
+       if (!target) return { skipped: true }; // Just ignore if target not in DB
+       targetId = target._id;
     }
 
-    if (!targetCouple) {
-       logger.info(`[MatchService] skipCouple: Target couple ${targetCoupleIdStr} is dummy or not in DB. Already gone.`);
-       return { skipped: true };
-    }
-
+    // 3. Create the skip record
     await Match.create({
       couple1: me._id,
-      couple2: targetCouple._id,
+      couple2: targetId,
       status: 'skipped',
       actionBy: me._id,
     });
 
+    logger.info(`[MatchService] Skipped couple ${targetCoupleIdStr}`);
     return { skipped: true };
   }
 
