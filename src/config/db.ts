@@ -12,10 +12,9 @@ export const connectDB = async (): Promise<void> => {
     try {
       await mongoose.connect(env.MONGODB_URI, {
         dbName: 'sawa_db',
-        maxPoolSize: 10, // Allows up to 10 concurrent connections to Atlas
+        maxPoolSize: 10,
         serverSelectionTimeoutMS: 5000,
-        socketTimeoutMS: 45000, // Important for slow mobile networks
-        family: 4 // IPv4 for stability
+        socketTimeoutMS: 45000
       });
       logger.info('✅  MongoDB connected and tuned for production');
       return;
