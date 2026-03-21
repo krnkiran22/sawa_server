@@ -268,10 +268,10 @@ export class MatchService {
     const me = await Couple.findOne({ coupleId: requestingCoupleId });
     if (!me) throw new AppError('Profile not found', 404);
 
-    // Delete all matches with status 'skipped' where this couple is common
+    // Delete all matches that are NOT accepted (Reset skipped and pending)
     await Match.deleteMany({
       $or: [{ couple1: me._id }, { couple2: me._id }],
-      status: 'skipped'
+      status: { $in: ['skipped', 'pending'] }
     });
 
     return { success: true };
