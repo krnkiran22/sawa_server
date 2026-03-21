@@ -9,8 +9,7 @@ import { logger } from '../utils/logger';
 export class MatchService {
   /**
    * Fetches the discovery feed of couples for the current user.
-   * If there are no seeded couples in the database other than the requester, 
-   * this seeds a dummy couple (Arjun & Meera) to test the UI.
+   * Exclusively fetches real users from the database.
    */
   async getDiscoveryFeed(requestingCoupleId: string, cityFilter?: string) {
     const me = await Couple.findOne({ coupleId: requestingCoupleId });
