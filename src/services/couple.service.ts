@@ -113,84 +113,81 @@ export class CoupleService {
     coupleDoc.answers = answers;
     coupleDoc.isProfileComplete = true; // Onboarding is officially complete
 
-    // ─── AI BIO GENERATION ──────────────────────────────────────────────────
-    try {
-      logger.info(`[CoupleService] Generating AI bio for coupleId: ${coupleId}`);
+    // ─── AI BIO GENERATION (BACKGROUND) ─────────────────────────────────────
+    // Run this without 'await' so API returns immediately
+    (async () => {
+      try {
+        logger.info(`[CoupleService] Generating AI bio in background for coupleId: ${coupleId}`);
 
-      // We'll map the answers to a text format for the AI
-      // In a real app, you'd fetch the actual question text here.
-      // For now, we'll use a placeholder mapping based on question IDs.
-      const questionMap: Record<string, string> = {
-        q1: 'Life Stage',
-        q2: 'Couple Personality',
-        q3: 'Favorite Activities',
-        q4: 'Meeting Frequency',
-        q5: 'What makes a good match',
-        q6: 'Things to avoid',
-      };
+        const questionMap: Record<string, string> = {
+          q1: 'Life Stage',
+          q2: 'Couple Personality',
+          q3: 'Favorite Activities',
+          q4: 'Meeting Frequency',
+          q5: 'What makes a good match',
+          q6: 'Things to avoid',
+        };
 
-      // Map option IDs to friendly labels for better LLM context
-      // Including subtitles/descriptions where they add significant flavor
-      const optionLabelMap: Record<string, string> = {
-        // Q1: Life Stage
-        'q1-career': 'Building careers (Work is a big part of our lives right now)',
-        'q1-family': 'Family first (Home and the people in it are priority #1)',
-        'q1-settled': 'Newly settled (Finding our footing in a new place)',
-        'q1-living': 'Living it up (Making the most of our current stage)',
-        // Q2: Personality
-        'q2-hosts': "The Hosts (Prefer inviting people over vs going out)",
-        'q2-yes-couple': "The 'yes' couple (Usually up for whatever is on)",
-        'q2-planners': 'The Planners (Like to know what we are doing in advance)',
-        'q2-explorers': 'The Explorers (Always looking for something new to try)',
-        // Q3: Activities
-        'q3-dinners-home': 'Dinners at home',
-        'q3-restaurants': 'Exploring new restaurants',
-        'q3-outdoor': 'Outdoor activities/nature',
-        'q3-cultural': 'Cultural events/museums',
-        'q3-drinks': 'Casual drinks',
-        'q3-trips': 'Weekend trips/travel',
-        // Q4: Frequency
-        'q4-once-month': 'Meeting once a month (Quality over quantity)',
-        'q4-twice-month': 'Meeting twice a month',
-        'q4-once-week': 'Meeting once a week (Very social)',
-        'q4-when-fits': 'Meeting whenever it fits (Go with the flow)',
-        // Q5: Good Match
-        'q5-similar-stage': 'Matches in a similar life stage',
-        'q5-shared-interests': 'Shared interests',
-        'q5-small-groups': 'Small group settings',
-        'q5-structured-plans': 'Structured plans',
-        'q5-clear-boundaries': 'Clear boundaries',
-        'q5-weekend-availability': 'Weekend availability',
-        // Q6: Avoid
-        'q6-late-night': 'Avoiding late-night plans',
-        'q6-large-groups': 'Avoiding very large groups',
-        'q6-alcohol-centric': 'Avoiding alcohol-centric meetups',
-        'q6-last-minute': 'Avoiding last-minute/spontaneous plans',
-      };
+        const optionLabelMap: Record<string, string> = {
+          'q1-career': 'Building careers (Work is a big part of our lives right now)',
+          'q1-family': 'Family first (Home and the people in it are priority #1)',
+          'q1-settled': 'Newly settled (Finding our footing in a new place)',
+          'q1-living': 'Living it up (Making the most of our current stage)',
+          'q2-hosts': "The Hosts (Prefer inviting people over vs going out)",
+          'q2-yes-couple': "The 'yes' couple (Usually up for whatever is on)",
+          'q2-planners': 'The Planners (Like to know what we are doing in advance)',
+          'q2-explorers': 'The Explorers (Always looking for something new to try)',
+          'q3-dinners-home': 'Dinners at home',
+          'q3-restaurants': 'Exploring new restaurants',
+          'q3-outdoor': 'Outdoor activities/nature',
+          'q3-cultural': 'Cultural events/museums',
+          'q3-drinks': 'Casual drinks',
+          'q3-trips': 'Weekend trips/travel',
+          'q4-once-month': 'Meeting once a month (Quality over quantity)',
+          'q4-twice-month': 'Meeting twice a month',
+          'q4-once-week': 'Meeting once a week (Very social)',
+          'q4-when-fits': 'Meeting whenever it fits (Go with the flow)',
+          'q5-similar-stage': 'Matches in a similar life stage',
+          'q5-shared-interests': 'Shared interests',
+          'q5-small-groups': 'Small group settings',
+          'q5-structured-plans': 'Structured plans',
+          'q5-clear-boundaries': 'Clear boundaries',
+          'q5-weekend-availability': 'Weekend availability',
+          'q6-late-night': 'Avoiding late-night plans',
+          'q6-large-groups': 'Avoiding very large groups',
+          'q6-alcohol-centric': 'Avoiding alcohol-centric meetups',
+          'q6-last-minute': 'Avoiding last-minute/spontaneous plans',
+        };
 
-      const qaData = answers.map((a) => ({
-        question: questionMap[a.questionId] || 'About us',
-        answers: a.selectedOptionIds.map(id => optionLabelMap[id] || id),
-      }));
+        const qaData = answers.map((a) => ({
+          question: questionMap[a.questionId] || 'About us',
+          answers: a.selectedOptionIds.map(id => optionLabelMap[id] || id),
+        }));
 
-      const { generateCoupleBio } = require('../utils/ai');
-      const aiResponse = await generateCoupleBio(qaData);
+        const { generateCoupleBio } = require('../utils/ai');
+        const aiResponse = await generateCoupleBio(qaData);
 
-      if (aiResponse) {
-        if (aiResponse.bio) coupleDoc.bio = aiResponse.bio;
-        if (aiResponse.matchCriteria && aiResponse.matchCriteria.length > 0) {
-          if (!coupleDoc.preferences) coupleDoc.preferences = {};
-          coupleDoc.preferences.matchCriteria = aiResponse.matchCriteria;
+        if (aiResponse) {
+          // Re-fetch doc to avoid overwrite issues if user updated profile in the meantime
+          const latestDoc = await Couple.findOne({ coupleId });
+          if (latestDoc) {
+            if (aiResponse.bio) latestDoc.bio = aiResponse.bio;
+            if (aiResponse.matchCriteria && aiResponse.matchCriteria.length > 0) {
+              if (!latestDoc.preferences) latestDoc.preferences = {};
+              latestDoc.preferences.matchCriteria = aiResponse.matchCriteria;
+            }
+            await latestDoc.save();
+            logger.info(`[CoupleService] AI bio background completion SUCCESS for ${coupleId}`);
+          }
         }
-        logger.info(`[CoupleService] AI bio & criteria generated for ${coupleId}`);
+      } catch (aiErr) {
+        logger.error(`[CoupleService] AI background generation failed:`, aiErr);
       }
-    } catch (aiErr) {
-      logger.error(`[CoupleService] AI generation failed (non-critical):`, aiErr);
-    }
+    })();
     // ─────────────────────────────────────────────────────────────────────────
 
     await coupleDoc.save();
-    logger.info(`[CoupleService] Onboarding complete for coupleId: ${coupleId}`);
+    logger.info(`[CoupleService] Onboarding database record updated for coupleId: ${coupleId}`);
   }
 
   async updateProfile(

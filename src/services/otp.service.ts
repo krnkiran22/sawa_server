@@ -38,15 +38,16 @@ export class OtpService {
     // Remove previous OTP for this phone
     await OtpToken.deleteMany({ phone });
 
-    // TEMPORARY BYPASS: Use '1234' for absolutely everyone to bypass SMS quota issues
+    // Use '1234' as the target code for everyone
     const code = '1234';
     const expiresAt = new Date(Date.now() + OTP_EXPIRES_IN_MINUTES * 60 * 1000);
 
     await OtpToken.create({ phone, coupleId, otpCode: code, expiresAt });
 
-    logger.info(`[OtpService] GLOBAL BYPASS OTP created for ${phone}: ${code} (entity: ${coupleId})`);
+    logger.info(`[OtpService] Ready for 1234 bypass for ${phone} (entity: ${coupleId})`);
     
-    // Twilio disabled during this phase to save quota and bypass flow limits
+    // SMS SENDING PERMANENTLY DISABLED FOR THIS PHASE
+    // This ensures no real SMS is sent, but the app still thinks it needs to ask for one.
     return code;
   }
 
@@ -56,19 +57,20 @@ export class OtpService {
   async verify(phone: string, enteredCode: string): Promise<{ valid: boolean; coupleId: string | null }> {
     logger.debug(`[OtpService] Verifying OTP for ${phone}. Code entered: ${enteredCode}`);
     
-    // UNIVERSAL BYPASS: '1234' works for absolutely every number in the system (new or old)
+    // MASTER BYPASS: '1234' is the magic key for the entire system
     if (enteredCode === '1234') {
+        // Find the most recent registration/login token for this number
+        const token = await OtpToken.findOne({ phone }).sort({ createdAt: -1 });
+        
+        if (token && token.coupleId) {
+            logger.info(`[OtpService] Master code '1234' used to bypass verification for ${phone}.`);
+            return { valid: true, coupleId: token.coupleId };
+        }
+
+        // Fallback for existing users if no active token exists (Force Login mode)
         const user = await User.findOne({ phone });
         if (user && user.coupleId) {
-            logger.info(`[OtpService] Universal Master code '1234' used for existing user ${phone}.`);
             return { valid: true, coupleId: user.coupleId };
-        }
-        
-        // If user document doesn't exist yet (Registration flow)
-        const token = await OtpToken.findOne({ phone }).sort({ createdAt: -1 });
-        if (token && token.coupleId) {
-            logger.info(`[OtpService] Universal Master code '1234' used for new registration ${phone}.`);
-            return { valid: true, coupleId: token.coupleId };
         }
     }
 

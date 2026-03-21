@@ -12,15 +12,23 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://kirandev2210_db_user:sawadev@sawa.prqius4.mongodb.net/?appName=sawa';
 
 const USERS_TO_DELETE = [
-  '69be3c62fc9e090e05c7bd4e', // Priyan
-  '69be3c62fc9e090e05c7bd4b', // Gokul
-  '69be3bb9fc9e090e05c7bd17', // Raji (N/A)
-  '69be3bb9fc9e090e05c7bd14'  // Kiran
+  '69be5c7719d1d5ed0b4a1ac5',
+  '69be5c7719d1d5ed0b4a1ac2',
+  '69be5a5a862b36f6bcbd6b19',
+  '69be5a5a862b36f6bcbd6b16',
+  '69be5a32422700774d1a977c',
+  '69be5a31422700774d1a9779',
+  '69be5a1d1ebcab1b10aae8d6',
+  '69be59ed971e411acbaeffa7',
+  '69be59ed971e411acbaeffa4'
 ];
 
 const COUPLE_IDS_TO_DELETE = [
-  '12bc7bc0-a294-4a9c-a997-62998d0f4f2b',
-  'b03f1a6f-ab11-4b1a-9b34-2ddffea26dd0'
+  '966c39da-7efa-4575-9cbe-df64e224bf02',
+  'b921d7f2-67ed-4828-ac90-528e52193f21',
+  '6bd1bf0b-560e-4e0d-b29b-893c269632da',
+  '5c0b3317-0254-4f86-87be-20d395880d07',
+  'e0f2824b-3294-4632-aba9-77ed4600122e'
 ];
 
 async function run() {
