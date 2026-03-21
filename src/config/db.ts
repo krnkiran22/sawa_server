@@ -12,9 +12,11 @@ export const connectDB = async (): Promise<void> => {
     try {
       await mongoose.connect(env.MONGODB_URI, {
         dbName: 'sawa_db',
-        maxPoolSize: 10,
-        serverSelectionTimeoutMS: 5000,
-        socketTimeoutMS: 45000
+        maxPoolSize: 50,             // Increase pool for better parallel demo performance
+        minPoolSize: 5,              // Keep a few connections warm
+        serverSelectionTimeoutMS: 3000, // Fail faster if Atlas is slow
+        socketTimeoutMS: 30000,      // 30s is more than enough
+        connectTimeoutMS: 10000,
       });
       logger.info('✅  MongoDB connected and tuned for production');
       return;
