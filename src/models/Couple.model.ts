@@ -35,8 +35,8 @@ export interface ICouple extends Document {
 const CoupleSchema = new Schema<ICouple>(
   {
     coupleId: { type: String, required: true, unique: true, index: true },
-    partner1: { type: Schema.Types.ObjectId, ref: 'User' },
-    partner2: { type: Schema.Types.ObjectId, ref: 'User' },
+    partner1: { type: Schema.Types.ObjectId, ref: 'User', index: true },
+    partner2: { type: Schema.Types.ObjectId, ref: 'User', index: true },
     profileName: { type: String, trim: true },
     relationshipStatus: { type: String },
     bio: { type: String, trim: true, maxlength: 1000 },

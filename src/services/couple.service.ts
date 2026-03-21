@@ -262,15 +262,23 @@ export class CoupleService {
   }
 
   async getCouple(coupleId: string): Promise<any | null> {
-    const couple = await Couple.findOne({ coupleId })
-      .populate('partner1', 'name phone dob email')
-      .populate('partner2', 'name phone dob email')
-      .lean();
-    
+    // 1. Initial lookup to get the MongoDB _id for the community search
+    const coupleBasic = await Couple.findOne({ coupleId }).select('_id').lean();
+    if (!coupleBasic) return null;
+
+    // 2. Parallelize population and community search
+    const [couple, communityDocs] = await Promise.all([
+      Couple.findById(coupleBasic._id)
+        .populate('partner1', 'name phone dob email')
+        .populate('partner2', 'name phone dob email')
+        .lean(),
+      Community.find({ members: coupleBasic._id })
+        .select('name city description coverImageUrl')
+        .lean()
+    ]);
+
     if (!couple) return null;
 
-    // Fetch communities where they are members
-    const communityDocs = await Community.find({ members: couple._id });
     const communities = communityDocs.map(c => ({
       id: c._id,
       title: c.name,
