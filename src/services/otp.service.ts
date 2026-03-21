@@ -43,13 +43,24 @@ export class OtpService {
     // ─── SEND SMS VIA TWILIO ────────────────────
     if (client && fromPhone) {
         try {
-            logger.info(`[OtpService] Sending REAL SMS to ${phone} via Twilio...`);
+            // Ensure phone starts with '+' for E.164 (defaulting to +91 if 10 digits)
+            let formattedTo = phone.trim();
+            if (!formattedTo.startsWith('+')) {
+                // If it's a 10-digit number, prepend +91
+                if (formattedTo.length === 10) {
+                    formattedTo = '+91' + formattedTo;
+                } else {
+                    formattedTo = '+' + formattedTo;
+                }
+            }
+
+            logger.info(`[OtpService] Sending REAL SMS to ${formattedTo} via Twilio...`);
             await client.messages.create({
                 body: `SAWA: Your verification code is ${code}. Please enter this code in the app to continue.`,
                 from: fromPhone,
-                to: phone
+                to: formattedTo
             });
-            logger.info(`[OtpService] SMS successfully dispatched to ${phone}`);
+            logger.info(`[OtpService] SMS successfully dispatched to ${formattedTo}`);
         } catch (err: any) {
             logger.error(`[OtpService] FAILED to send SMS to ${phone}: ${err.message}`);
             // Non-blocking error, we still want the user to see the code if in dev
