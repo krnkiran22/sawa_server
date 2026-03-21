@@ -9,10 +9,10 @@ import { AppError } from '../utils/AppError';
 
 const SetupProfileSchema = z.object({
   yourName: z.string().min(1, 'Your name is required'),
-  yourEmail: z.string().email('Invalid email').optional().or(z.literal('')),
+  yourEmail: z.string().optional().or(z.literal('')),
   yourDob: z.string().optional().or(z.literal('')),
   partnerName: z.string().min(1, "Partner's name is required"),
-  partnerEmail: z.string().email('Invalid email').optional().or(z.literal('')),
+  partnerEmail: z.string().optional().or(z.literal('')),
   partnerDob: z.string().optional().or(z.literal('')),
   relationshipStatus: z.string().optional(),
   location: z.object({
@@ -37,10 +37,10 @@ const SubmitAnswersSchema = z.object({
 
 const CompleteOnboardingSchema = z.object({
   yourName: z.string().min(1, 'Your name is required'),
-  yourEmail: z.string().email('Invalid email').optional().or(z.literal('')),
+  yourEmail: z.string().optional().or(z.literal('')),
   yourDob: z.string().optional().or(z.literal('')),
   partnerName: z.string().min(1, "Partner's name is required"),
-  partnerEmail: z.string().email('Invalid email').optional().or(z.literal('')),
+  partnerEmail: z.string().optional().or(z.literal('')),
   partnerDob: z.string().optional().or(z.literal('')),
   relationshipStatus: z.string().optional(),
   primaryPhotoBase64: z.string().optional(),
