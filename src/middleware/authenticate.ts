@@ -9,6 +9,7 @@ declare global {
     interface Request {
       user?: {
         userId: string;
+        coupleMongoId?: string;
         coupleId?: string;
         userName?: string;
       };
@@ -40,7 +41,11 @@ export const authenticate = async (
   const payload = verifyAccessToken(token);
   
   // Set basic info from payload
-  req.user = { userId: payload.userId, coupleId: payload.coupleId };
+  req.user = { 
+    userId: payload.userId, 
+    coupleId: payload.coupleId,
+    coupleMongoId: payload.coupleMongoId
+  };
 
   // Fetch name asynchronously to attach if available
   const user = await User.findById(payload.userId).select('name');

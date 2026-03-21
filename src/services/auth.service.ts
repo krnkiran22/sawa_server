@@ -97,23 +97,30 @@ export class AuthService {
       userRepository.markVerified(partnerPhone),
     ]);
 
+    // Find the shared Couple document once
+    const couple = await Couple.findOne({ coupleId });
+
     // Issue JWT tokens for your user (the one on this device)
     const yourAccessToken = signAccessToken({
       userId: yourUser._id.toString(),
+      coupleMongoId: couple?._id.toString(),
       coupleId,
     });
     const yourRefreshToken = signRefreshToken({
       userId: yourUser._id.toString(),
+      coupleMongoId: couple?._id.toString(),
       coupleId,
     });
 
     // Issue tokens for partner too (they will receive via their device later)
     const partnerAccessToken = signAccessToken({
       userId: partnerUser._id.toString(),
+      coupleMongoId: couple?._id.toString(),
       coupleId,
     });
     const partnerRefreshToken = signRefreshToken({
       userId: partnerUser._id.toString(),
+      coupleMongoId: couple?._id.toString(),
       coupleId,
     });
 
@@ -160,6 +167,7 @@ export class AuthService {
 
     const accessToken = signAccessToken({
       userId: user._id.toString(),
+      coupleMongoId: payload.coupleMongoId, // Reuse from refresh token
       coupleId: payload.coupleId ?? user.coupleId,
     });
 
@@ -217,13 +225,17 @@ export class AuthService {
       throw new AppError('User not found', 404, 'USER_NOT_FOUND');
     }
 
+    const couple = await Couple.findOne({ coupleId: user.coupleId });
+
     const accessToken = signAccessToken({
       userId: user._id.toString(),
+      coupleMongoId: couple?._id.toString(),
       coupleId: user.coupleId,
     });
     
     const refreshToken = signRefreshToken({
       userId: user._id.toString(),
+      coupleMongoId: couple?._id.toString(),
       coupleId: user.coupleId,
     });
 
@@ -233,8 +245,6 @@ export class AuthService {
     );
 
     logger.info(`[AuthService] User logged in successfully. coupleId: ${user.coupleId}`);
-
-    const couple = await Couple.findOne({ coupleId: user.coupleId });
 
     return {
       coupleId: user.coupleId,

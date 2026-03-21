@@ -4,7 +4,8 @@ import { AppError } from './AppError';
 
 export interface JwtPayload {
   userId: string;
-  coupleId?: string;   // shared couple entity ID
+  coupleMongoId?: string; // MongoDB _id of the Couple document (High performance)
+  coupleId?: string;      // shared couple entity ID (UUID)
   type: 'access' | 'refresh';
 }
 

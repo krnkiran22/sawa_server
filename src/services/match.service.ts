@@ -11,8 +11,14 @@ export class MatchService {
    * Fetches the discovery feed of couples for the current user.
    * Exclusively fetches real users from the database.
    */
-  async getDiscoveryFeed(requestingCoupleId: string, cityFilter?: string) {
-    const me = await Couple.findOne({ coupleId: requestingCoupleId });
+  async getDiscoveryFeed(requestingCoupleId: string, cityFilter?: string, coupleMongoId?: string) {
+    let me;
+    if (coupleMongoId) {
+      me = { _id: new mongoose.Types.ObjectId(coupleMongoId), coupleId: requestingCoupleId };
+    } else {
+      me = await Couple.findOne({ coupleId: requestingCoupleId });
+    }
+    
     if (!me) throw new AppError('Couple profile not found', 404);
 
     const SUPPORTED_CITIES = [
@@ -71,8 +77,16 @@ export class MatchService {
   /**
    * Say hello (like) to a couple
    */
-  async sayHello(requestingCoupleId: string, targetCoupleIdStr: string) {
-    const me = await Couple.findOne({ coupleId: requestingCoupleId });
+  async sayHello(requestingCoupleId: string, targetCoupleIdStr: string, coupleMongoId?: string) {
+    let me;
+    if (coupleMongoId) {
+      // Small optimization: we still need profileName for notification, but we can skip the full lookup if we trust the caller
+      // Actually, for simplicity and safety, we might still want to find 'me' if we need their profileName
+      me = await Couple.findOne({ coupleId: requestingCoupleId });
+    } else {
+      me = await Couple.findOne({ coupleId: requestingCoupleId });
+    }
+    
     if (!me) throw new AppError('Profile not found', 404);
 
     // Transient dummy support

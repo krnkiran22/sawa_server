@@ -19,10 +19,10 @@ export const validateMatchAction = validate(MatchActionSchema);
  * Fetches the discovery feed of un-interacted couples for the requesting couple.
  */
 export const getDiscoveryFeed = async (req: Request, res: Response): Promise<void> => {
-  const { coupleId } = req.user!;
+  const { coupleId, coupleMongoId } = req.user!;
   const { city } = req.query;
   
-  const couples = await matchService.getDiscoveryFeed(coupleId!, city as string);
+  const couples = await matchService.getDiscoveryFeed(coupleId!, city as string, coupleMongoId);
   
   sendSuccess({ res, statusCode: 200, data: { couples } });
 };
@@ -32,10 +32,10 @@ export const getDiscoveryFeed = async (req: Request, res: Response): Promise<voi
  * Send a hello/like to a couple.
  */
 export const sayHello = async (req: Request, res: Response): Promise<void> => {
-  const { coupleId } = req.user!;
+  const { coupleId, coupleMongoId } = req.user!;
   const { targetCoupleId } = req.body as z.infer<typeof MatchActionSchema>;
   
-  const result = await matchService.sayHello(coupleId!, targetCoupleId);
+  const result = await matchService.sayHello(coupleId!, targetCoupleId, coupleMongoId);
   
   sendSuccess({ res, statusCode: 200, message: 'Hello sent', data: result });
 };
