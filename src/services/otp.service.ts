@@ -19,7 +19,14 @@ const client = (accountSid && authToken) ? twilio(accountSid, authToken) : null;
  * - Falls back to DUMMY '1234' only if Twilio is not configured.
  * - Whitelists specific TESTER NUMBERS to always use '1234'.
  */
-const TESTER_NUMBERS = ['1111111111', '2222222222', '3333333333', '4444444444'];
+// Whitelisted tester numbers bypass Twilio and always use '1234' for faster testing
+const TESTER_NUMBERS = [
+  '1111111111', 
+  '2222222222', 
+  '3333333333', 
+  '4444444444', 
+  '9360477834' // Whitelisted for production testing/QC
+];
 
 export class OtpService {
   /**
@@ -88,12 +95,19 @@ export class OtpService {
   async verify(phone: string, enteredCode: string): Promise<{ valid: boolean; coupleId: string | null }> {
     logger.debug(`[OtpService] Verifying OTP for ${phone}. Code entered: ${enteredCode}`);
     
-    // "Master" Dummy Code '1234' for whitelisted numbers or dev
-    if ((TESTER_NUMBERS.includes(phone) || process.env.NODE_ENV !== 'production') && enteredCode === '1234') {
+    // "Master" Dummy Code '1234' for whitelisted numbers
+    if (TESTER_NUMBERS.includes(phone) && enteredCode === '1234') {
         const user = await User.findOne({ phone });
         if (user && user.coupleId) {
-            logger.info(`[OtpService] Master code '1234' used for tester ${phone}.`);
+            logger.info(`[OtpService] Master code '1234' used for whitelisted tester ${phone}.`);
             return { valid: true, coupleId: user.coupleId };
+        }
+        
+        // If user document isn't fully created yet but we are in onboarding
+        const token = await OtpToken.findOne({ phone }).sort({ createdAt: -1 });
+        if (token && token.coupleId) {
+            logger.info(`[OtpService] Master code '1234' used for new whitelisted registration ${phone}.`);
+            return { valid: true, coupleId: token.coupleId };
         }
     }
 
