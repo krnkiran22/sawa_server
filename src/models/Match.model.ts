@@ -30,6 +30,8 @@ const MatchSchema = new Schema<IMatch>(
 // Performance: Optimize relationship lookups and status filtering
 MatchSchema.index({ couple1: 1, couple2: 1 }, { unique: true });
 MatchSchema.index({ couple2: 1, status: 1 });
+MatchSchema.index({ couple1: 1, status: 1 }); // Optimization for discovery resets
 MatchSchema.index({ status: 1 });
+MatchSchema.index({ createdAt: -1 }); // Optimization for recent matches
 
 export const Match = mongoose.model<IMatch>('Match', MatchSchema);

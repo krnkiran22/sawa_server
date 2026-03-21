@@ -29,4 +29,9 @@ const CommunitySchema = new Schema<ICommunity>(
   { timestamps: true }
 );
 
+// Performance Indices
+CommunitySchema.index({ city: 1 });
+CommunitySchema.index({ members: 1 });
+CommunitySchema.index({ name: 'text', city: 'text', tags: 'text' }); // Search optimization
+
 export const Community = mongoose.model<ICommunity>('Community', CommunitySchema);
