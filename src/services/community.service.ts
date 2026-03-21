@@ -7,9 +7,11 @@ import { Notification } from '../models/Notification.model';
 import { Match } from '../models/Match.model';
 
 export class CommunityService {
+
   async getAllCommunities(requestingCoupleId: string, cityFilter?: string) {
     const me = await Couple.findOne({ coupleId: requestingCoupleId });
     if (!me) throw new AppError('Profile not found', 404);
+
 
     const SUPPORTED_CITIES = [
       'Bangalore',
