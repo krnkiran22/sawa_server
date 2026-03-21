@@ -26,32 +26,43 @@ export const authenticate = async (
   _res: Response,
   next: NextFunction,
 ): Promise<void> => {
-  const authHeader = req.headers.authorization;
+  try {
+    const authHeader = req.headers.authorization;
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return next(new AppError('Authorization header missing', 401, 'UNAUTHORIZED'));
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return next(new AppError('Authorization header missing', 401, 'UNAUTHORIZED'));
+    }
+
+    const token = authHeader.split(' ')[1];
+
+    if (!token) {
+      return next(new AppError('Token missing', 401, 'UNAUTHORIZED'));
+    }
+
+    const payload = verifyAccessToken(token);
+    
+    // Set basic info from payload
+    req.user = { 
+      userId: payload.userId, 
+      coupleId: payload.coupleId,
+      coupleMongoId: payload.coupleMongoId
+    };
+
+    // DEBUG LOG
+    console.log(`[Auth] Authenticated user ${payload.userId} for ${req.method} ${req.url}`);
+
+    // Fetch name asynchronously to attach if available
+    const user = await User.findById(payload.userId).select('name');
+    if (user) {
+      req.user.userName = user.name;
+    }
+
+    next();
+  } catch (err: any) {
+    console.error(`[Auth Error] Failed to authenticate: ${err.message}`);
+    if (err instanceof AppError) {
+      return next(err);
+    }
+    next(new AppError(err.message || 'Authentication failed', 401, 'UNAUTHORIZED'));
   }
-
-  const token = authHeader.split(' ')[1];
-
-  if (!token) {
-    return next(new AppError('Token missing', 401, 'UNAUTHORIZED'));
-  }
-
-  const payload = verifyAccessToken(token);
-  
-  // Set basic info from payload
-  req.user = { 
-    userId: payload.userId, 
-    coupleId: payload.coupleId,
-    coupleMongoId: payload.coupleMongoId
-  };
-
-  // Fetch name asynchronously to attach if available
-  const user = await User.findById(payload.userId).select('name');
-  if (user) {
-    req.user.userName = user.name;
-  }
-
-  next();
 };

@@ -225,11 +225,23 @@ export class AuthService {
       throw new AppError('User not found', 404, 'USER_NOT_FOUND');
     }
 
-    const couple = await Couple.findOne({ coupleId: user.coupleId });
+    let couple = await Couple.findOne({ coupleId: user.coupleId });
+
+    // Ensure the Couple document exists so subsequent protected requests (Discovery, Notifications) don't 404.
+    if (!couple) {
+      console.log(`[AuthService] No Couple doc found for ID ${user.coupleId}. Creating one for user ${user.name}...`);
+      couple = await Couple.create({
+        coupleId: user.coupleId,
+        partner1: user.role === 'primary' ? user._id : undefined,
+        partner2: user.role === 'partner' ? user._id : undefined,
+        isProfileComplete: false,
+        isSubscribed: false,
+      });
+    }
 
     const accessToken = signAccessToken({
       userId: user._id.toString(),
-      coupleMongoId: couple?._id.toString(),
+      coupleMongoId: couple._id.toString(),
       coupleId: user.coupleId,
     });
     
