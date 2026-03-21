@@ -216,29 +216,37 @@ export class CoupleService {
 
     // Update partner names if provided
     if (data.yourName || data.partnerName) {
-      const p1Name = data.yourName || (await User.findById(coupleDoc.partner1))?.name || 'Partner 1';
-      const p2Name = data.partnerName || (await User.findById(coupleDoc.partner2))?.name || 'Partner 2';
+      // Parallelize fetching existing names if needed
+      const [u1, u2] = await Promise.all([
+        data.yourName ? null : User.findById(coupleDoc.partner1).select('name'),
+        data.partnerName ? null : User.findById(coupleDoc.partner2).select('name')
+      ]);
+
+      const p1Name = data.yourName || (u1 as any)?.name || 'Partner 1';
+      const p2Name = data.partnerName || (u2 as any)?.name || 'Partner 2';
       coupleDoc.profileName = `${p1Name} & ${p2Name}`;
     }
 
-    await coupleDoc.save();
+    // Save couple doc and update User records in parallel
+    const updatePromises: Promise<any>[] = [coupleDoc.save()];
 
-    // Update individual User records
     if (coupleDoc.partner1 && (data.yourName || data.yourDob || data.yourEmail)) {
-      await User.findByIdAndUpdate(coupleDoc.partner1, {
+      updatePromises.push(User.findByIdAndUpdate(coupleDoc.partner1, {
         name: data.yourName,
         dob: data.yourDob,
         email: data.yourEmail,
-      });
+      }));
     }
 
     if (coupleDoc.partner2 && (data.partnerName || data.partnerDob || data.partnerEmail)) {
-      await User.findByIdAndUpdate(coupleDoc.partner2, {
+      updatePromises.push(User.findByIdAndUpdate(coupleDoc.partner2, {
         name: data.partnerName,
         dob: data.partnerDob,
         email: data.partnerEmail,
-      });
+      }));
     }
+
+    await Promise.all(updatePromises);
 
     return coupleDoc;
   }

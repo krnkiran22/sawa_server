@@ -129,9 +129,14 @@ export const completeOnboarding = async (req: Request, res: Response) => {
   console.log(`[CoupleController] completeOnboarding START for coupleId: ${coupleId}`);
 
   try {
+    // 1. First ensure the couple profile exists (Sequential because others depend on it)
     await coupleService.setupProfile(userId, coupleId!, data);
-    await coupleService.uploadPhotos(coupleId!, data);
-    await coupleService.submitAnswers(coupleId!, data.answers);
+
+    // 2. Parallelize photo processing and answers (These only update existing fields)
+    await Promise.all([
+       coupleService.uploadPhotos(coupleId!, data),
+       coupleService.submitAnswers(coupleId!, data.answers)
+    ]);
 
     console.log(`[CoupleController] completeOnboarding SUCCESS for coupleId: ${coupleId}`);
     sendSuccess({ res, statusCode: 200, message: 'All Onboarding data completed successfully' });
