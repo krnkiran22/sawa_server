@@ -73,28 +73,27 @@ export class CoupleService {
    * Upload photos (dummy base64 logic — actual app would upload to Cloudinary or AWS S3)
    * Instead of saving raw base64 in Mongo (too large), we just pretend and save a fake URL.
    */
+  /**
+   * Upload photos (dummy base64 logic — actual app would upload to Cloudinary or AWS S3)
+   */
   async uploadPhotos(
     coupleId: string,
     data: { primaryPhotoBase64?: string; secondaryPhotosBase64?: string[] }
   ) {
-    const coupleDoc = await Couple.findOne({ coupleId });
-    if (!coupleDoc) {
-      throw new AppError('Couple not found (setup profile first)', 404);
-    }
-
+    const updateData: any = {};
+    
     if (data.primaryPhotoBase64 && data.primaryPhotoBase64.length > 10) {
-      // Check if it's already a data URI or raw base64
       const prefix = data.primaryPhotoBase64.startsWith('data:') ? '' : 'data:image/jpeg;base64,';
-      coupleDoc.primaryPhoto = prefix + data.primaryPhotoBase64;
+      updateData.primaryPhoto = prefix + data.primaryPhotoBase64;
     }
 
     if (data.secondaryPhotosBase64 && data.secondaryPhotosBase64.length > 0) {
-      coupleDoc.secondaryPhotos = data.secondaryPhotosBase64
+      updateData.secondaryPhotos = data.secondaryPhotosBase64
         .filter(b64 => b64 && b64.length > 10)
         .map(b64 => (b64.startsWith('data:') ? b64 : 'data:image/jpeg;base64,' + b64));
     }
 
-    await coupleDoc.save();
+    await Couple.findOneAndUpdate({ coupleId }, { $set: updateData });
     logger.info(`[CoupleService] Photos saved for coupleId: ${coupleId}`);
   }
 
@@ -102,23 +101,20 @@ export class CoupleService {
    * Submit questionnaire answers and mark onboarding COMPLETE
    */
   async submitAnswers(coupleId: string, answers: IOnboardingAnswer[]) {
-    const coupleDoc = await Couple.findOne({ coupleId })
-      .populate('partner1')
-      .populate('partner2');
+    // 1. Mark as complete atomically first to avoid fetch/save races
+    const coupleDoc = await Couple.findOneAndUpdate(
+      { coupleId },
+      { $set: { answers, isProfileComplete: true } },
+      { new: true }
+    );
 
     if (!coupleDoc) {
       throw new AppError('Couple not found', 404);
     }
 
-    coupleDoc.answers = answers;
-    coupleDoc.isProfileComplete = true; // Onboarding is officially complete
-
     // ─── AI BIO GENERATION (BACKGROUND) ─────────────────────────────────────
-    // Run this without 'await' so API returns immediately
     (async () => {
       try {
-        logger.info(`[CoupleService] Generating AI bio in background for coupleId: ${coupleId}`);
-
         const questionMap: Record<string, string> = {
           q1: 'Life Stage',
           q2: 'Couple Personality',
@@ -168,17 +164,13 @@ export class CoupleService {
         const aiResponse = await generateCoupleBio(qaData);
 
         if (aiResponse) {
-          // Re-fetch doc to avoid overwrite issues if user updated profile in the meantime
-          const latestDoc = await Couple.findOne({ coupleId });
-          if (latestDoc) {
-            if (aiResponse.bio) latestDoc.bio = aiResponse.bio;
-            if (aiResponse.matchCriteria && aiResponse.matchCriteria.length > 0) {
-              if (!latestDoc.preferences) latestDoc.preferences = {};
-              latestDoc.preferences.matchCriteria = aiResponse.matchCriteria;
-            }
-            await latestDoc.save();
-            logger.info(`[CoupleService] AI bio background completion SUCCESS for ${coupleId}`);
+          const updateObj: any = {};
+          if (aiResponse.bio) updateObj.bio = aiResponse.bio;
+          if (aiResponse.matchCriteria && aiResponse.matchCriteria.length > 0) {
+            updateObj['preferences.matchCriteria'] = aiResponse.matchCriteria;
           }
+          await Couple.findOneAndUpdate({ coupleId }, { $set: updateObj });
+          logger.info(`[CoupleService] AI bio background completion SUCCESS for ${coupleId}`);
         }
       } catch (aiErr) {
         logger.error(`[CoupleService] AI background generation failed:`, aiErr);
@@ -186,8 +178,7 @@ export class CoupleService {
     })();
     // ─────────────────────────────────────────────────────────────────────────
 
-    await coupleDoc.save();
-    logger.info(`[CoupleService] Onboarding database record updated for coupleId: ${coupleId}`);
+    logger.info(`[CoupleService] Onboarding complete for coupleId: ${coupleId}`);
   }
 
   async updateProfile(
