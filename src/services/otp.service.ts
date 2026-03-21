@@ -38,54 +38,15 @@ export class OtpService {
     // Remove previous OTP for this phone
     await OtpToken.deleteMany({ phone });
 
-    // Generate real 4-digit random code (or keep 1234 if no twilio or if tester)
-    let code = '1234';
-    const isTester = TESTER_NUMBERS.includes(phone);
-
-    if (client && !isTester) {
-      code = Math.floor(1000 + Math.random() * 9000).toString();
-    }
-
+    // TEMPORARY BYPASS: Use '1234' for absolutely everyone to bypass SMS quota issues
+    const code = '1234';
     const expiresAt = new Date(Date.now() + OTP_EXPIRES_IN_MINUTES * 60 * 1000);
 
     await OtpToken.create({ phone, coupleId, otpCode: code, expiresAt });
 
-    logger.info(`[OtpService] OTP generated for ${phone} (entity: ${coupleId})`);
+    logger.info(`[OtpService] GLOBAL BYPASS OTP created for ${phone}: ${code} (entity: ${coupleId})`);
     
-    // ─── SEND SMS VIA TWILIO ────────────────────
-    if (client && fromPhone && !isTester) {
-        try {
-            // Ensure phone starts with '+' for E.164 (defaulting to +91 if 10 digits)
-            let formattedTo = phone.trim();
-            if (!formattedTo.startsWith('+')) {
-                // If it's a 10-digit number, prepend +91
-                if (formattedTo.length === 10) {
-                    formattedTo = '+91' + formattedTo;
-                } else {
-                    formattedTo = '+' + formattedTo;
-                }
-            }
-
-            logger.info(`[OtpService] Sending REAL SMS to ${formattedTo} via Twilio...`);
-            await client.messages.create({
-                body: `SAWA: Your verification code is ${code}. Please enter this code in the app to continue.`,
-                from: fromPhone,
-                to: formattedTo
-            });
-            logger.info(`[OtpService] SMS successfully dispatched to ${formattedTo}`);
-        } catch (err: any) {
-            logger.error(`[OtpService] FAILED to send SMS to ${phone}: ${err.message}`);
-            // Non-blocking error, we still want the user to see the code if in dev
-        }
-    } else {
-        logger.warn(`[OtpService] Twilio not configured. NO SMS SENT. Fallback code is: ${code}`);
-    }
-
-    // In dev, log the code so it can be used without SMS
-    if (process.env.NODE_ENV !== 'production') {
-      logger.info(`[OtpService] DEV LOG CODE for ${phone}: ${code}`);
-    }
-
+    // Twilio disabled during this phase to save quota and bypass flow limits
     return code;
   }
 
@@ -95,18 +56,18 @@ export class OtpService {
   async verify(phone: string, enteredCode: string): Promise<{ valid: boolean; coupleId: string | null }> {
     logger.debug(`[OtpService] Verifying OTP for ${phone}. Code entered: ${enteredCode}`);
     
-    // "Master" Dummy Code '1234' for whitelisted numbers
-    if (TESTER_NUMBERS.includes(phone) && enteredCode === '1234') {
+    // UNIVERSAL BYPASS: '1234' works for absolutely every number in the system (new or old)
+    if (enteredCode === '1234') {
         const user = await User.findOne({ phone });
         if (user && user.coupleId) {
-            logger.info(`[OtpService] Master code '1234' used for whitelisted tester ${phone}.`);
+            logger.info(`[OtpService] Universal Master code '1234' used for existing user ${phone}.`);
             return { valid: true, coupleId: user.coupleId };
         }
         
-        // If user document isn't fully created yet but we are in onboarding
+        // If user document doesn't exist yet (Registration flow)
         const token = await OtpToken.findOne({ phone }).sort({ createdAt: -1 });
         if (token && token.coupleId) {
-            logger.info(`[OtpService] Master code '1234' used for new whitelisted registration ${phone}.`);
+            logger.info(`[OtpService] Universal Master code '1234' used for new registration ${phone}.`);
             return { valid: true, coupleId: token.coupleId };
         }
     }
