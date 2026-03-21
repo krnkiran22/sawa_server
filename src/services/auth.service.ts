@@ -234,6 +234,7 @@ export class AuthService {
         coupleId: user.coupleId,
         partner1: user.role === 'primary' ? user._id : undefined,
         partner2: user.role === 'partner' ? user._id : undefined,
+        profileName: user.name || 'User',
         isProfileComplete: false,
         isSubscribed: false,
       });
