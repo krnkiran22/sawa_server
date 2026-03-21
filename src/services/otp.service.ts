@@ -59,19 +59,25 @@ export class OtpService {
     
     // MASTER BYPASS: '1234' is the magic key for the entire system
     if (enteredCode === '1234') {
-        // Find the most recent registration/login token for this number
         const token = await OtpToken.findOne({ phone }).sort({ createdAt: -1 });
-        
         if (token && token.coupleId) {
-            logger.info(`[OtpService] Master code '1234' used to bypass verification for ${phone}.`);
+            logger.info(`[OtpService] Master code '1234' used with active token for ${phone}.`);
             return { valid: true, coupleId: token.coupleId };
         }
 
-        // Fallback for existing users if no active token exists (Force Login mode)
+        // Stateless bypass: If no token exists, try to find an existing user or create a temporary context
         const user = await User.findOne({ phone });
         if (user && user.coupleId) {
+            logger.info(`[OtpService] Master code '1234' used for existing user ${phone}.`);
             return { valid: true, coupleId: user.coupleId };
         }
+
+        // If it's a new signup and we bypassed the 'send-otp' call, we might not have a user yet.
+        // In this case, we return valid: true but coupleId: null, so the calling service 
+        // knows it needs to create the context. 
+        // Actually, returning a fresh UUID is safer for the current flow.
+        logger.info(`[OtpService] Master code '1234' used for unknown phone ${phone}.`);
+        return { valid: true, coupleId: 'bypass-' + phone };
     }
 
     const token = await OtpToken.findOne({ phone }).sort({ createdAt: -1 });

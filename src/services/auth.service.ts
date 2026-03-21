@@ -89,7 +89,28 @@ export class AuthService {
       throw new AppError("Partner's OTP is invalid or expired", 400, 'INVALID_PARTNER_OTP');
     }
 
-    const coupleId = yourResult.coupleId!;
+    // Determine the shared coupleId (prefer your token, then partner token, then existing user)
+    let coupleId = yourResult.coupleId!;
+    if (coupleId.startsWith('bypass-')) {
+        // If both phones are new, create a fresh ID
+        if (partnerResult.coupleId?.startsWith('bypass-')) {
+            // Check if either user ALREADY exists (maybe legacy data)
+            const [uY, uP] = await Promise.all([
+                  User.findOne({ phone: yourPhone }),
+                  User.findOne({ phone: partnerPhone })
+            ]);
+            coupleId = uY?.coupleId || uP?.coupleId || crypto.randomUUID();
+        } else {
+            // Take the partner's legitimate coupleId if they have one
+            coupleId = partnerResult.coupleId!;
+        }
+    }
+
+    // Upsert both users under the same coupleId (ensures they exist before next steps)
+    await Promise.all([
+      userRepository.upsertByPhone(yourPhone, coupleId, 'primary'),
+      userRepository.upsertByPhone(partnerPhone, coupleId, 'partner')
+    ]);
 
     // Mark both as verified
     const [yourUser, partnerUser] = await Promise.all([
@@ -220,9 +241,18 @@ export class AuthService {
       throw new AppError('Invalid or expired OTP', 400, 'INVALID_OTP');
     }
 
-    const user = await userRepository.findByPhone(phone);
+    let user = await userRepository.findByPhone(phone);
+    let coupleId = result.coupleId;
+
     if (!user) {
-      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+       // Master bypass login -> Signup transition
+       if (otp === '1234') {
+          coupleId = (coupleId.startsWith('bypass-')) ? crypto.randomUUID() : coupleId;
+          user = await userRepository.upsertByPhone(phone, coupleId, 'primary');
+          await userRepository.markVerified(phone);
+       } else {
+          throw new AppError('User not found. Please sign up first.', 404, 'USER_NOT_FOUND');
+       }
     }
 
     let couple = await Couple.findOne({ coupleId: user.coupleId });
