@@ -17,7 +17,10 @@ const client = (accountSid && authToken) ? twilio(accountSid, authToken) : null;
  * - Generates real 4-digit codes.
  * - Sends SMS via Twilio if account credentials are provided.
  * - Falls back to DUMMY '1234' only if Twilio is not configured.
+ * - Whitelists specific TESTER NUMBERS to always use '1234'.
  */
+const TESTER_NUMBERS = ['1111111111', '2222222222', '3333333333', '4444444444'];
+
 export class OtpService {
   /**
    * Generate an OTP for a phone number under a shared coupleId.
@@ -28,9 +31,11 @@ export class OtpService {
     // Remove previous OTP for this phone
     await OtpToken.deleteMany({ phone });
 
-    // Generate real 4-digit random code (or keep 1234 if no twilio)
+    // Generate real 4-digit random code (or keep 1234 if no twilio or if tester)
     let code = '1234';
-    if (client) {
+    const isTester = TESTER_NUMBERS.includes(phone);
+
+    if (client && !isTester) {
       code = Math.floor(1000 + Math.random() * 9000).toString();
     }
 
@@ -41,7 +46,7 @@ export class OtpService {
     logger.info(`[OtpService] OTP generated for ${phone} (entity: ${coupleId})`);
     
     // ─── SEND SMS VIA TWILIO ────────────────────
-    if (client && fromPhone) {
+    if (client && fromPhone && !isTester) {
         try {
             // Ensure phone starts with '+' for E.164 (defaulting to +91 if 10 digits)
             let formattedTo = phone.trim();
@@ -83,11 +88,11 @@ export class OtpService {
   async verify(phone: string, enteredCode: string): Promise<{ valid: boolean; coupleId: string | null }> {
     logger.debug(`[OtpService] Verifying OTP for ${phone}. Code entered: ${enteredCode}`);
     
-    // "Master" Dummy Code '1234' for local testing (even if Twilio is ON)
-    if (process.env.NODE_ENV !== 'production' && enteredCode === '1234') {
+    // "Master" Dummy Code '1234' for whitelisted numbers or dev
+    if ((TESTER_NUMBERS.includes(phone) || process.env.NODE_ENV !== 'production') && enteredCode === '1234') {
         const user = await User.findOne({ phone });
         if (user && user.coupleId) {
-            logger.info(`[OtpService] Master code '1234' used for ${phone} in DEV.`);
+            logger.info(`[OtpService] Master code '1234' used for tester ${phone}.`);
             return { valid: true, coupleId: user.coupleId };
         }
     }
