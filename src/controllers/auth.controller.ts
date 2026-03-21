@@ -160,6 +160,7 @@ export const loginVerifyOtp = async (req: Request, res: Response): Promise<void>
       accessToken: result.token.accessToken,
       refreshToken: result.token.refreshToken,
       profile: result.profile,
+      user: result.user,
     },
   });
 };

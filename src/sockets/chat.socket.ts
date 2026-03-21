@@ -29,7 +29,15 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
   // Receive message from client — broadcast to room
   socket.on(
     SOCKET_EVENTS.CHAT_MESSAGE,
-    async (data: { chatId: string; content: string; contentType: string; chatType?: 'private' | 'group'; audioDuration?: number; senderIndividualName?: string }) => {
+    async (data: { 
+      chatId: string; 
+      content: string; 
+      contentType: string; 
+      chatType?: 'private' | 'group'; 
+      audioDuration?: number; 
+      senderIndividualName?: string;
+      clientMessageId?: string;
+    }) => {
       
       if (!socket.userId || !socket.coupleId) {
          logger.warn(`Unauthorized message attempt from socket ${socket.id}`);
@@ -52,92 +60,100 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
         const couple = await Couple.findOne({ coupleId: socket.coupleId });
         if (!couple) return;
 
+        // 1. Pre-generate ID and prepare broadcast data for INSTANT response
+        const messageId = new mongoose.Types.ObjectId();
+        const timestamp = new Date().toISOString();
         const chatType = data.chatType || 'private';
 
-        // Persist message
-        const message = await Message.create({
-          chatType,
-          chatId: data.chatId,
-          sender: couple._id,
-          senderUser: socket.userId,
-          senderName: user.name || socket.userName || 'Unknown',
-          content: data.content,
-          contentType: data.contentType || 'text',
-          audioDuration: data.audioDuration,
-        });
-
         const broadcastData = {
-          _id: message._id,
+          _id: messageId,
+          clientMessageId: data.clientMessageId,
           chatId: data.chatId,
           chatType,
           senderCoupleId: socket.coupleId, 
           senderUserId: socket.userId,   
-          senderName: couple.profileName || user.name || socket.userName || 'Me', 
-          senderIndividualName: user.name || socket.userName || data.senderIndividualName || 'Me',
+          senderName: socket.userName || data.senderIndividualName || 'Me', 
+          senderIndividualName: socket.userName || data.senderIndividualName || 'Me',
           senderRole: socket.userRole,
           accent: getCoupleCommunityColor(socket.coupleId),
           content: data.content,
           contentType: data.contentType ?? 'text',
           audioDuration: data.audioDuration,
-          timestamp: message.createdAt.toISOString(),
+          timestamp,
         };
 
-        // Broadcast to specific room
+        // 2. BROADCAST INSTANTLY (WhatsApp Speed 🚀)
         io.to(`chat:${data.chatId}`).emit(SOCKET_EVENTS.CHAT_MESSAGE, broadcastData);
+        logger.info(`[Socket] Instant broadcast sent for chat:${data.chatId}`);
 
-        logger.info(`Message saved and broadcasted to chat:${data.chatId} (${chatType})`);
+        // 3. PERSIST & NOTIFY (Background 🛡️)
+        (async () => {
+          try {
+            await Message.create({
+              _id: messageId,
+              chatType,
+              chatId: data.chatId,
+              sender: couple._id,
+              senderUser: socket.userId,
+              senderName: socket.userName || data.senderIndividualName || 'Unknown',
+              content: data.content,
+              contentType: data.contentType || 'text',
+              audioDuration: data.audioDuration,
+              createdAt: timestamp,
+            });
 
-        // ─── NOTIFICATIONS ───
-        if (chatType === 'private') {
-           const match = await Match.findById(data.chatId);
-           if (match) {
-              const recipientId = match.couple1.equals(couple._id) ? match.couple2 : match.couple1;
-              
-              const existingUnread = await Notification.findOne({
-                recipient: recipientId,
-                type: 'message',
-                'data.matchId': data.chatId,
-                read: false
-              });
-
-              if (!existingUnread) {
-                await Notification.create({
-                  recipient: recipientId,
-                  sender: couple._id,
-                  type: 'message',
-                  title: `New Message from ${couple.profileName}`,
-                  message: `You have new messages from ${couple.profileName}`,
-                  data: { matchId: data.chatId, coupleName: couple.profileName }
-                });
-              }
-           }
-        } else if (chatType === 'group') {
-           const community = await Community.findById(data.chatId);
-           if (community) {
-              // Notify all other members
-              const others = community.members.filter(m => m.toString() !== couple._id.toString());
-              for (const memberId of others) {
-                 // Check if unread community notification exists
-                 const existing = await Notification.findOne({
-                    recipient: memberId,
+            if (chatType === 'private') {
+               const match = await Match.findById(data.chatId);
+               if (match) {
+                  const recipientId = match.couple1.equals(couple._id) ? match.couple2 : match.couple1;
+                  const existingUnread = await Notification.findOne({
+                    recipient: recipientId,
                     type: 'message',
-                    'data.communityId': data.chatId,
+                    'data.matchId': data.chatId,
                     read: false
-                 });
+                  });
 
-                 if (!existing) {
+                  if (!existingUnread) {
                     await Notification.create({
-                       recipient: memberId,
-                       sender: couple._id,
-                       type: 'message',
-                       title: `New in ${community.name}`,
-                       message: `${couple.profileName} sent a message to the group`,
-                       data: { communityId: community._id, communityName: community.name, chatOnly: true }
+                      recipient: recipientId,
+                      sender: couple._id,
+                      type: 'message',
+                      title: `New Message from ${couple.profileName}`,
+                      message: `You have new messages from ${couple.profileName}`,
+                      data: { matchId: data.chatId, coupleName: couple.profileName }
                     });
-                 }
-              }
-           }
-        }
+                  }
+               }
+            } else if (chatType === 'group') {
+               const community = await Community.findById(data.chatId);
+               if (community) {
+                  const others = community.members.filter(m => m.toString() !== couple._id.toString());
+                  for (const memberId of others) {
+                     const existing = await Notification.findOne({
+                        recipient: memberId,
+                        type: 'message',
+                        'data.communityId': data.chatId,
+                        read: false
+                     });
+
+                     if (!existing) {
+                        await Notification.create({
+                           recipient: memberId,
+                           sender: couple._id,
+                           type: 'message',
+                           title: `New in ${community.name}`,
+                           message: `${couple.profileName} sent a message to the group`,
+                           data: { communityId: community._id, communityName: community.name, chatOnly: true }
+                        });
+                     }
+                  }
+               }
+            }
+            logger.debug(`[Socket] Message persistence and notifications complete for ${messageId}`);
+          } catch (bgErr) {
+            logger.error(`[Socket] Background work failed for message ${messageId}:`, bgErr);
+          }
+        })();
 
       } catch (err) {
         logger.error('Failed to handle CHAT_MESSAGE socket event:', err);
