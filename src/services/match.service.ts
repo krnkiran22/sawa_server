@@ -52,37 +52,6 @@ export class MatchService {
     // Find couples that are not us, and not interacted with
     let potentialCouples = await Couple.find(query).limit(10); // Fetch up to 10 at a time
 
-    // --- Developer Seed Fallback ---
-    // If empty or too few (because it's just the user testing), provide more dummy couples
-    if (potentialCouples.length < 3) {
-      logger.info(`[MatchService] Discovery feed too small (${potentialCouples.length}), adding dummy fallbacks`);
-      
-      const dummyData = [
-        { name: 'Arjun & Meera', photo: 'https://picsum.photos/seed/sawa1/800/1200' },
-        { name: 'Sameer & Zara', photo: 'https://picsum.photos/seed/sawa2/800/1200' },
-        { name: 'Rohan & Ananya', photo: 'https://picsum.photos/seed/sawa3/800/1200' },
-        { name: 'Ishaan & Maya', photo: 'https://picsum.photos/seed/sawa4/800/1200' },
-      ];
-
-      for (const d of dummyData) {
-        // Only add if not already in the list by name
-        if (!potentialCouples.some(c => c.profileName === d.name)) {
-           // We create temporary transient objects for the feed if they don't exist in DB
-           // but for actual interaction safety we should technically check DB
-           const mockId = new mongoose.Types.ObjectId();
-           potentialCouples.push({
-             _id: mockId,
-             coupleId: `dummy-${mockId.toString().slice(-6)}`,
-             profileName: d.name,
-             primaryPhoto: d.photo,
-             location: { city: 'New Delhi', country: 'India' },
-             isProfileComplete: true,
-             answers: []
-           } as any);
-        }
-      }
-    }
-
     // Decorate the couples with dummy insights and tags
     return potentialCouples.map(c => ({
       _id: c._id,
