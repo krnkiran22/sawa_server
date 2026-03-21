@@ -124,6 +124,34 @@ export class OtpService {
     const token = await OtpToken.findOne({ phone }).sort({ createdAt: -1 });
     return token?.coupleId ?? null;
   }
+
+  /**
+   * Send a general SMS invitation to a number.
+   */
+  async sendInvitation(phone: string, message: string): Promise<boolean> {
+    if (!client || !fromPhone) {
+        logger.warn(`[OtpService] Twilio not configured. Invitation NOT sent to ${phone}. msg: ${message}`);
+        return false;
+    }
+
+    try {
+        let formattedTo = phone.trim();
+        if (!formattedTo.startsWith('+')) {
+            formattedTo = formattedTo.length === 10 ? '+91' + formattedTo : '+' + formattedTo;
+        }
+
+        await client.messages.create({
+            body: message,
+            from: fromPhone,
+            to: formattedTo
+        });
+        logger.info(`[OtpService] Invitation SMS dispatched to ${formattedTo}`);
+        return true;
+    } catch (err: any) {
+        logger.error(`[OtpService] Failed to send invitation to ${phone}: ${err.message}`);
+        return false;
+    }
+  }
 }
 
 export const otpService = new OtpService();

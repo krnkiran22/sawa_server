@@ -247,6 +247,16 @@ export class AuthService {
       }
     };
   }
+
+  /**
+   * Send a partner invitation SMS with a deep link to the app.
+   */
+  async sendPartnerInvite(partnerPhone: string): Promise<boolean> {
+    const inviteLink = "https://apps.apple.com/in/app/sawa-made-for-two/id514584879";
+    const msg = `Hi! Your partner has invited you to join them on SAWA. Download the app to link your accounts: ${inviteLink}`;
+    
+    return otpService.sendInvitation(partnerPhone, msg);
+  }
 }
 
 const hashToken = (token: string): string =>

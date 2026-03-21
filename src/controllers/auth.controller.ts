@@ -177,3 +177,23 @@ export const logout = async (req: Request, res: Response): Promise<void> => {
 
   sendSuccess({ res, message: 'Logged out successfully' });
 };
+
+/**
+ * POST /api/v1/auth/invite-partner
+ * Body: { partnerPhone }
+ */
+export const invitePartner = async (req: Request, res: Response): Promise<void> => {
+  const { partnerPhone } = req.body;
+  
+  if (!partnerPhone) {
+      throw new AppError('Partner phone number is required', 400);
+  }
+
+  await authService.sendPartnerInvite(partnerPhone);
+
+  sendSuccess({
+    res,
+    statusCode: 200,
+    message: 'Invitation sent to partner',
+  });
+};
