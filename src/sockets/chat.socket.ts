@@ -60,8 +60,8 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
         if (chatType === 'private') {
            const match = await prisma.match.findUnique({ where: { id: data.chatId } });
            if (match) {
-              const recipientId = match.couple1Id === couple.id ? match.couple2Id : match.couple1Id;
-              const recipientCouple = await prisma.couple.findUnique({ where: { id: recipientId } });
+            const recipientId = match.couple1Id === couple.coupleId ? match.couple2Id : match.couple1Id;
+            const recipientCouple = await prisma.couple.findUnique({ where: { coupleId: recipientId } });
               if (recipientCouple?.coupleId) {
                  io.to(`couple:${recipientCouple.coupleId}`).emit(SOCKET_EVENTS.CHAT_MESSAGE, broadcastData);
               }
@@ -75,7 +75,7 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
                 chatType: chatType as any,
                 matchId: chatType === 'private' ? data.chatId : null,
                 communityId: chatType === 'group' ? data.chatId : null,
-                senderId: couple.id,
+                senderId: couple.coupleId,
                 senderUserId: socket.userId!,
                 senderName: socket.userName || data.senderIndividualName || 'Unknown',
                 content: data.content,
@@ -88,7 +88,7 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
             if (chatType === 'private') {
                 const match = await prisma.match.findUnique({ where: { id: data.chatId } });
                 if (match) {
-                   const recipientId = match.couple1Id === couple.id ? match.couple2Id : match.couple1Id;
+                   const recipientId = match.couple1Id === couple.coupleId ? match.couple2Id : match.couple1Id;
                    const existingUnread = await prisma.notification.findFirst({
                      where: {
                        recipientId: recipientId,
@@ -102,7 +102,7 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
                      await prisma.notification.create({
                        data: {
                          recipientId: recipientId,
-                         senderId: couple.id,
+                         senderId: couple.coupleId,
                          type: 'message',
                          title: `New Message from ${couple.profileName}`,
                          message: `You have new messages from ${couple.profileName}`,
@@ -117,7 +117,7 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
                     include: { members: true }
                 });
                 if (community) {
-                   const others = community.members.filter((m: any) => m.coupleId !== couple.id);
+                   const others = community.members.filter((m: any) => m.coupleId !== couple.coupleId);
                    for (const member of others) {
                       const existing = await prisma.notification.findFirst({
                          where: {
@@ -132,7 +132,7 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
                          await prisma.notification.create({
                             data: {
                                recipientId: member.coupleId,
-                               senderId: couple.id,
+                               senderId: couple.coupleId,
                                type: 'message',
                                title: `New in ${community.name}`,
                                message: `${couple.profileName} sent a message`,
@@ -171,15 +171,15 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
                   { matchId: data.chatId },
                   { communityId: data.chatId }
               ],
-              senderId: { not: couple.id },
-              NOT: { readBy: { has: couple.id } }
+              senderId: { not: couple.coupleId },
+              NOT: { readBy: { has: couple.coupleId } }
           }
       });
 
       for (const msg of messagesToUpdate) {
           await prisma.message.update({
               where: { id: msg.id },
-              data: { readBy: { set: [...msg.readBy, couple.id] } }
+              data: { readBy: { set: [...msg.readBy, couple.coupleId] } }
           });
       }
 
@@ -189,7 +189,7 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
       });
 
       await prisma.notification.updateMany({
-        where: { recipientId: couple.id, type: 'message' }, // Simplification: mark all messages read
+        where: { recipientId: couple.coupleId, type: 'message' }, // Simplification: mark all messages read
         data: { read: true }
       });
 
