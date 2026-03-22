@@ -75,19 +75,46 @@ export class AdminService {
   }
 
   async getActivities() {
-    // Recent notifications or matches
-    const notifs = await Notification.find()
-      .populate('sender', 'profileName')
-      .sort({ createdAt: -1 })
-      .limit(20);
+    // Recent notifications, users, and communities
+    const [notifs, users, communities] = await Promise.all([
+      Notification.find().populate('sender', 'profileName').sort({ createdAt: -1 }).limit(10),
+      User.find().sort({ createdAt: -1 }).limit(10),
+      Community.find().sort({ createdAt: -1 }).limit(10)
+    ]);
 
-    return notifs.map(n => ({
-      id: n._id,
-      title: n.title,
-      actor: n.sender ? (n.sender as any).profileName : 'System',
-      type: n.type === 'match' ? 'couple_matched' : 'system_alert',
-      happenedAt: n.createdAt,
-    }));
+    const activities: any[] = [];
+
+    notifs.forEach(n => {
+      activities.push({
+        id: `notif-${n._id}`,
+        title: n.title,
+        actor: n.sender ? (n.sender as any).profileName : 'System',
+        type: n.type === 'match' ? 'couple_matched' : 'system_alert',
+        happenedAt: n.createdAt,
+      });
+    });
+
+    users.forEach(u => {
+      activities.push({
+        id: `user-${u._id}`,
+        title: 'New User Registered',
+        actor: u.name || 'Anonymous User',
+        type: 'user_registration',
+        happenedAt: u.createdAt,
+      });
+    });
+
+    communities.forEach(c => {
+      activities.push({
+        id: `comm-${c._id}`,
+        title: 'New Community Created',
+        actor: c.name,
+        type: 'community_creation',
+        happenedAt: c.createdAt,
+      });
+    });
+
+    return activities.sort((a, b) => b.happenedAt.getTime() - a.happenedAt.getTime()).slice(0, 20);
   }
 
   async getPrompts() {
