@@ -15,6 +15,7 @@ router.use(adminAuth);
 router.get('/data', controller.getDashboardData);
 router.post('/prompts', controller.addPrompt);
 router.patch('/prompts/:id/toggle', controller.togglePrompt);
+router.delete('/prompts/:id', controller.deletePrompt);
 router.delete('/users/:id', controller.deleteUser);
 router.delete('/communities/:id', controller.deleteCommunity);
 

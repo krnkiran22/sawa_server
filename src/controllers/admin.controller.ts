@@ -110,4 +110,14 @@ export class AdminController {
       res.status(500).json({ success: false, message: err.message });
     }
   }
+
+  async deletePrompt(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      await adminService.deletePrompt(id);
+      res.status(200).json({ success: true, message: 'Prompt deleted' });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  }
 }
