@@ -143,7 +143,7 @@ export class MatchService {
             type: 'match',
             title: 'New Connection Request!',
             message: `${me!.profileName} wants to connect with you!`,
-            data: { matchId: newMatch.id, coupleId: me!.coupleId, profileName: me!.profileName, isPending: true }
+            data: { matchId: newMatch.id, _id: newMatch.id, coupleId: me!.coupleId, profileName: me!.profileName, isPending: true }
           }
         });
       } catch (err) {
@@ -200,19 +200,16 @@ export class MatchService {
       include: { couple1: true }
     });
 
-    return pending.map((m: any) => {
-        const otherCouple = m.couple1;
-        return {
-          _id: m.id,
-          coupleId: otherCouple.coupleId,
-          profileName: otherCouple.profileName || 'Someone',
-          primaryPhoto: otherCouple.primaryPhoto,
-          location: otherCouple.locationCity || 'Unknown',
-          distance: Math.floor(Math.random() * 8) + 1 + 'km away',
-          status: 'pending',
-          createdAt: m.createdAt
-        };
-    });
+    return pending.map((m: any) => ({
+      _id: m.id,
+      id: m.id,
+      couple: {
+        ...m.couple1,
+        _id: m.couple1.id,
+        id: m.couple1.id,
+        location: m.couple1.locationCity || 'Unknown',
+      }
+    }));
   }
 
   async getMatches(requestingCoupleId: string, coupleMongoId?: string) {
@@ -233,13 +230,15 @@ export class MatchService {
     return matches.map((m: any) => {
         const otherCouple = m.couple1Id === meId ? m.couple2 : m.couple1;
         return {
+          ...m,
           _id: m.id,
-          coupleId: otherCouple.coupleId,
-          profileName: otherCouple.profileName || 'Unknown Couple',
-          primaryPhoto: otherCouple.primaryPhoto,
-          location: otherCouple.locationCity || 'Unknown',
-          distance: Math.floor(Math.random() * 8) + 1 + 'km away',
-          status: m.status,
+          id: m.id,
+          otherCouple: {
+            ...otherCouple,
+            _id: otherCouple.id,
+            id: otherCouple.id,
+            location: otherCouple.locationCity || 'Unknown',
+          }
         };
     });
   }

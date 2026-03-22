@@ -31,6 +31,7 @@ export class CommunityService {
       const isAdmin = c.admins.some((a: any) => a.coupleId === me.id);
       
       return {
+        _id: c.id,
         id: c.id,
         title: c.name,
         about: c.description,
@@ -40,6 +41,7 @@ export class CommunityService {
         isMember,
         isAdmin,
         members: Array.from({ length: c.members.length }).map((_, i) => ({
+          _id: `member-${i}`,
           id: `member-${i}`,
           name: `Couple ${i + 1}`,
           city: c.city,
@@ -69,6 +71,7 @@ export class CommunityService {
       const c = m.community;
       const isAdmin = c.admins.some((a: any) => a.coupleId === me.id);
       return {
+        _id: c.id,
         id: c.id,
         title: c.name,
         about: c.description,
@@ -128,7 +131,7 @@ export class CommunityService {
       }
     }
 
-    return { id: community.id, name: community.name };
+    return { _id: community.id, id: community.id, name: community.name };
   }
 
   async joinCommunity(requestingCoupleId: string, communityId: string) {

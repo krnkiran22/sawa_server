@@ -13,7 +13,7 @@ export const getMe = async (req: Request, res: Response): Promise<void> => {
     select: { id: true, name: true, phone: true, email: true, dob: true, role: true, coupleId: true }
   });
   if (!user) throw new AppError('User not found', 404);
-  sendSuccess({ res, data: { user } });
+  sendSuccess({ res, data: { user: { ...user, _id: user.id } } });
 };
 
 /**

@@ -12,15 +12,19 @@ export const getNotifications = async (req: Request, res: Response): Promise<voi
   const notifications = await prisma.notification.findMany({ 
     where: { recipientId: me.id },
     include: {
-      sender: { select: { profileName: true, primaryPhoto: true } }
+      sender: { select: { id: true, profileName: true, primaryPhoto: true } }
     },
     orderBy: { createdAt: 'desc' },
     take: 50
   });
 
-  logger.info(`[NotificationController] User: ${me.coupleId}, Found ${notifications.length} notifications.`);
+  const formatted = notifications.map((n: any) => ({
+    ...n,
+    _id: n.id,
+    sender: n.sender ? { ...n.sender, _id: n.sender.id } : null
+  }));
 
-  sendSuccess({ res, statusCode: 200, data: { notifications } });
+  sendSuccess({ res, statusCode: 200, data: { notifications: formatted } });
 };
 
 export const markAsRead = async (req: Request, res: Response): Promise<void> => {

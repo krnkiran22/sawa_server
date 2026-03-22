@@ -60,7 +60,7 @@ export const sendPrivateMessage = async (req: Request, res: Response): Promise<v
     }
   });
 
-  sendSuccess({ res, data: { message }, statusCode: 201 });
+  sendSuccess({ res, data: { message: { ...message, _id: message.id } }, statusCode: 201 });
 };
 
 export const getGroupMessages = async (req: Request, res: Response): Promise<void> => {
@@ -118,5 +118,5 @@ export const sendGroupMessage = async (req: Request, res: Response): Promise<voi
     }
   });
 
-  sendSuccess({ res, data: { message }, statusCode: 201 });
+  sendSuccess({ res, data: { message: { ...message, _id: message.id } }, statusCode: 201 });
 };

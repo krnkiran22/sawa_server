@@ -7,9 +7,10 @@ router.get('/active', async (req, res) => {
     try {
         const prompts = await prisma.prompt.findMany({ 
             where: { isActive: true },
-            select: { text: true, category: true }
+            select: { id: true, text: true, category: true }
         });
-        res.status(200).json({ success: true, data: prompts });
+        const formatted = prompts.map(p => ({ ...p, _id: p.id }));
+        res.status(200).json({ success: true, data: formatted });
     } catch (err: any) {
         res.status(500).json({ success: false, message: err.message });
     }

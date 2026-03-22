@@ -31,7 +31,7 @@ export class AdminController {
 
       res.status(200).json({ 
         success: true, 
-        data: { token, user: { id: user.id, name: user.name, role: user.role } } 
+        data: { token, user: { id: user.id, _id: user.id, name: user.name, role: user.role } } 
       });
     } catch (err: any) {
       logger.error('❌ Admin Login Error:', err.message);

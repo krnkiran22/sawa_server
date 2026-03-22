@@ -26,6 +26,7 @@ export class AdminService {
     });
 
     return users.map(u => ({
+      _id: u.id,
       id: u.id,
       name: u.name || 'Unknown',
       phone: u.phone,
@@ -42,6 +43,7 @@ export class AdminService {
     });
 
     return couples.map(c => ({
+      _id: c.id,
       id: c.id,
       pairName: c.profileName || 'Anonymous Pair',
       city: c.locationCity || 'Unknown',
@@ -58,6 +60,7 @@ export class AdminService {
     });
 
     return comms.map(c => ({
+      _id: c.id,
       id: c.id,
       name: c.name,
       category: c.tags?.[0] || c.city || 'General',
@@ -81,6 +84,7 @@ export class AdminService {
 
     notifs.forEach(n => {
       activities.push({
+        _id: `notif-${n.id}`,
         id: `notif-${n.id}`,
         title: n.title,
         actor: n.sender?.profileName || 'System',
@@ -91,6 +95,7 @@ export class AdminService {
 
     users.forEach(u => {
       activities.push({
+        _id: `user-${u.id}`,
         id: `user-${u.id}`,
         title: 'New User Registered',
         actor: u.name || 'Anonymous User',
@@ -101,6 +106,7 @@ export class AdminService {
 
     communities.forEach(c => {
       activities.push({
+        _id: `comm-${c.id}`,
         id: `comm-${c.id}`,
         title: 'New Community Created',
         actor: c.name,
@@ -121,6 +127,7 @@ export class AdminService {
   async getPrompts() {
     const list = await prisma.prompt.findMany({ orderBy: { createdAt: 'desc' } });
     return list.map(p => ({
+      _id: p.id,
       id: p.id,
       title: p.text,
       question: p.text,
@@ -138,6 +145,7 @@ export class AdminService {
     });
 
     return list.map(r => ({
+      _id: r.id,
       id: r.id,
       reporter: r.reporter?.profileName || 'Unknown',
       target: r.target?.profileName || 'Unknown',

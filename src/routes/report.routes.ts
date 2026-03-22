@@ -23,7 +23,7 @@ router.post('/', authenticate, async (req: any, res) => {
             }
         });
 
-        res.status(201).json({ success: true, data: report });
+        res.status(201).json({ success: true, data: { ...report, _id: report.id } });
     } catch (err: any) {
         res.status(500).json({ success: false, message: err.message });
     }
