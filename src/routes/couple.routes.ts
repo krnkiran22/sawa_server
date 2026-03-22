@@ -30,6 +30,11 @@ router.use(authenticate);
 // GET /api/v1/couples/me
 router.get('/me', asyncHandler(getMyCouple));
 
+// Block management
+router.get('/blocks', asyncHandler(getBlockList));
+router.post('/blocks', asyncHandler(blockCouple));
+router.delete('/blocks', asyncHandler(unblockCouple));
+
 // GET /api/v1/couples/:id
 router.get('/:id', asyncHandler(getCoupleById));
 
@@ -63,9 +68,5 @@ router.post('/subscribe', asyncHandler(subscribe));
 // DELETE /api/v1/couples/me
 router.delete('/me', asyncHandler(deleteMyAccount));
 
-// Block management
-router.get('/blocks', asyncHandler(getBlockList));
-router.post('/blocks', asyncHandler(blockCouple));
-router.delete('/blocks', asyncHandler(unblockCouple));
 
 export default router;
