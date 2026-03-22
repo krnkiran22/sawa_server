@@ -420,8 +420,32 @@ export class CoupleService {
   }
 
   async deleteMyCouple(coupleId: string) {
+    const couple = await prisma.couple.findUnique({ where: { coupleId } });
+    if (!couple) return { success: true };
+
+    // Delete dependent records manually to satisfy foreign key constraints
+    await prisma.onboardingAnswer.deleteMany({ where: { coupleId } });
+    await prisma.message.deleteMany({ where: { senderId: coupleId } });
+    await prisma.notification.deleteMany({ 
+      where: { OR: [{ recipientId: coupleId }, { senderId: coupleId }] } 
+    });
+    
+    await prisma.match.deleteMany({
+      where: { OR: [{ couple1Id: coupleId }, { couple2Id: coupleId }, { actionById: coupleId }] }
+    });
+    
+    await prisma.communityMember.deleteMany({ where: { coupleId } });
+    await prisma.communityAdmin.deleteMany({ where: { coupleId } });
+    await prisma.communityJoinRequest.deleteMany({ where: { coupleId } });
+    
+    await prisma.report.deleteMany({
+      where: { OR: [{ reporterId: coupleId }, { targetId: coupleId }] }
+    });
+
+    // 2. Delete the associated Users and finally the Couple
     await prisma.user.deleteMany({ where: { coupleId } });
     await prisma.couple.delete({ where: { coupleId } });
+
     return { success: true };
   }
 }
