@@ -48,7 +48,6 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
       socket.join(`chat:${data.chatId}`);
 
       try {
-        // Validate data.chatId is valid ObjectId
         if (!mongoose.Types.ObjectId.isValid(data.chatId)) {
           logger.warn(`Invalid chatId received in CHAT_MESSAGE: ${data.chatId}`);
           return;
@@ -60,7 +59,6 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
         const couple = await Couple.findOne({ coupleId: socket.coupleId });
         if (!couple) return;
 
-        // 1. Pre-generate ID and prepare broadcast data for INSTANT response
         const messageId = new mongoose.Types.ObjectId();
         const timestamp = new Date().toISOString();
         const chatType = data.chatType || 'private';
@@ -82,9 +80,22 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
           timestamp,
         };
 
-        // 2. BROADCAST INSTANTLY (WhatsApp Speed 🚀)
+        // 1. BROADCAST INSTANTLY (WhatsApp Speed 🚀)
         io.to(`chat:${data.chatId}`).emit(SOCKET_EVENTS.CHAT_MESSAGE, broadcastData);
         logger.info(`[Socket] Instant broadcast sent for chat:${data.chatId}`);
+
+        // 2. FALLBACK: Direct broadcast to recipient's couple room for massive reliability 🛡️
+        if (chatType === 'private') {
+           const match = await Match.findById(data.chatId);
+           if (match) {
+              const recipientId = match.couple1.equals(couple._id) ? match.couple2 : match.couple1;
+              const recipientCouple = await Couple.findById(recipientId);
+              if (recipientCouple?.coupleId) {
+                 io.to(`couple:${recipientCouple.coupleId}`).emit(SOCKET_EVENTS.CHAT_MESSAGE, broadcastData);
+                 logger.info(`[Socket] Dual broadcast sent to couple:${recipientCouple.coupleId}`);
+              }
+           }
+        }
 
         // 3. PERSIST & NOTIFY (Background 🛡️)
         (async () => {
@@ -103,51 +114,51 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
             });
 
             if (chatType === 'private') {
-               const match = await Match.findById(data.chatId);
-               if (match) {
-                  const recipientId = match.couple1.equals(couple._id) ? match.couple2 : match.couple1;
-                  const existingUnread = await Notification.findOne({
-                    recipient: recipientId,
-                    type: 'message',
-                    'data.matchId': data.chatId,
-                    read: false
-                  });
+                const match = await Match.findById(data.chatId);
+                if (match) {
+                   const recipientId = match.couple1.equals(couple._id) ? match.couple2 : match.couple1;
+                   const existingUnread = await Notification.findOne({
+                     recipient: recipientId,
+                     type: 'message',
+                     'data.matchId': data.chatId,
+                     read: false
+                   });
 
-                  if (!existingUnread) {
-                    await Notification.create({
-                      recipient: recipientId,
-                      sender: couple._id,
-                      type: 'message',
-                      title: `New Message from ${couple.profileName}`,
-                      message: `You have new messages from ${couple.profileName}`,
-                      data: { matchId: data.chatId, coupleName: couple.profileName }
-                    });
-                  }
-               }
-            } else if (chatType === 'group') {
-               const community = await Community.findById(data.chatId);
-               if (community) {
-                  const others = community.members.filter(m => m.toString() !== couple._id.toString());
-                  for (const memberId of others) {
-                     const existing = await Notification.findOne({
-                        recipient: memberId,
-                        type: 'message',
-                        'data.communityId': data.chatId,
-                        read: false
+                   if (!existingUnread) {
+                     await Notification.create({
+                       recipient: recipientId,
+                       sender: couple._id,
+                       type: 'message',
+                       title: `New Message from ${couple.profileName}`,
+                       message: `You have new messages from ${couple.profileName}`,
+                       data: { matchId: data.chatId, coupleName: couple.profileName }
                      });
+                   }
+                }
+            } else if (chatType === 'group') {
+                const community = await Community.findById(data.chatId);
+                if (community) {
+                   const others = community.members.filter(m => m.toString() !== couple._id.toString());
+                   for (const memberId of others) {
+                      const existing = await Notification.findOne({
+                         recipient: memberId,
+                         type: 'message',
+                         'data.communityId': data.chatId,
+                         read: false
+                      });
 
-                     if (!existing) {
-                        await Notification.create({
-                           recipient: memberId,
-                           sender: couple._id,
-                           type: 'message',
-                           title: `New in ${community.name}`,
-                           message: `${couple.profileName} sent a message to the group`,
-                           data: { communityId: community._id, communityName: community.name, chatOnly: true }
-                        });
-                     }
-                  }
-               }
+                      if (!existing) {
+                         await Notification.create({
+                            recipient: memberId,
+                            sender: couple._id,
+                            type: 'message',
+                            title: `New in ${community.name}`,
+                            message: `${couple.profileName} sent a message to the group`,
+                            data: { communityId: community._id, communityName: community.name, chatOnly: true }
+                         });
+                      }
+                   }
+                }
             }
             logger.debug(`[Socket] Message persistence and notifications complete for ${messageId}`);
           } catch (bgErr) {
@@ -169,7 +180,6 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
     socket.join(`chat:${data.chatId}`);
 
     try {
-      // Validate data.chatId is valid ObjectId
       if (!mongoose.Types.ObjectId.isValid(data.chatId)) {
         logger.warn(`Invalid chatId received in CHAT_READ: ${data.chatId}`);
         return;
@@ -178,7 +188,6 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
       const couple = await Couple.findOne({ coupleId: socket.coupleId });
       if (!couple) return;
 
-      // Update all unread messages in this chat where we are NOT the sender
       await Message.updateMany(
         { 
           chatId: data.chatId, 
@@ -188,13 +197,11 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
         { $addToSet: { readBy: couple._id } }
       );
 
-      // Broadcast "Seen" event to the room
       io.to(`chat:${data.chatId}`).emit(SOCKET_EVENTS.CHAT_READ, {
         chatId: data.chatId,
         readByCoupleId: socket.coupleId
       });
 
-      // ─── NEW: Clear message notifications when chat is read ───
       await Notification.updateMany(
         { recipient: couple._id, type: 'message', 'data.matchId': data.chatId },
         { $set: { read: true } }
