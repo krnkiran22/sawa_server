@@ -102,8 +102,15 @@ export class CommunityService {
     });
 
     if (data.invitedCoupleIds && data.invitedCoupleIds.length > 0) {
-      for (const targetCoupleId of data.invitedCoupleIds) {
+      for (const rawId of data.invitedCoupleIds) {
         try {
+          const targetCouple = await prisma.couple.findUnique({
+            where: rawId.includes('-') ? { coupleId: rawId } : { id: rawId },
+            select: { coupleId: true }
+          });
+          if (!targetCouple) continue;
+          const targetCoupleId = targetCouple.coupleId;
+
           const match = await prisma.match.findFirst({
             where: {
               OR: [
@@ -126,7 +133,7 @@ export class CommunityService {
             });
           }
         } catch (err) {
-          logger.error(`[CommunityService] Failed to notify couple ${targetCoupleId}: ${err}`);
+          logger.error(`[CommunityService] Failed to notify couple ${rawId}: ${err}`);
         }
       }
     }
@@ -207,18 +214,27 @@ export class CommunityService {
     });
     if (!isAdmin) throw new AppError('Admin only', 403);
 
-    await prisma.communityJoinRequest.deleteMany({ where: { communityId, coupleId: requestId } });
+    // The requestId from the frontend might be the Mongo-style ID (CUID). 
+    // We must resolve it to the business ID (UUID) for the CommunityMember relation.
+    const targetCouple = await prisma.couple.findUnique({
+      where: requestId.includes('-') ? { coupleId: requestId } : { id: requestId },
+      select: { coupleId: true }
+    });
+    if (!targetCouple) throw new AppError('Couple not found', 404);
+    const targetId = targetCouple.coupleId;
+
+    await prisma.communityJoinRequest.deleteMany({ where: { communityId, coupleId: targetId } });
 
     if (decision === 'accept') {
        await prisma.communityMember.upsert({
-           where: { communityId_coupleId: { communityId, coupleId: requestId } },
+           where: { communityId_coupleId: { communityId, coupleId: targetId } },
            update: {},
-           create: { communityId, coupleId: requestId }
+           create: { communityId, coupleId: targetId }
        });
 
        await prisma.notification.create({
           data: {
-             recipientId: requestId,
+             recipientId: targetId,
              senderId: me.coupleId,
              type: 'community',
              title: 'Request Accepted!',
@@ -339,11 +355,17 @@ export class CommunityService {
     const community = await prisma.community.findUnique({ where: { id: communityId } });
     if (!community) throw new AppError('Community not found', 404);
 
-    for (const targetCoupleId of invitedCoupleIds) {
+    for (const rawId of invitedCoupleIds) {
       try {
+        const targetCouple = await prisma.couple.findUnique({
+          where: rawId.includes('-') ? { coupleId: rawId } : { id: rawId },
+          select: { coupleId: true }
+        });
+        if (!targetCouple) continue;
+
         await prisma.notification.create({
           data: {
-            recipientId: targetCoupleId,
+            recipientId: targetCouple.coupleId,
             senderId: me.coupleId,
             type: 'community',
             title: 'Community Invitation',
@@ -352,7 +374,7 @@ export class CommunityService {
           }
         });
       } catch (err) {
-        logger.error(`[CommunityService] Failed to invite couple ${targetCoupleId}: ${err}`);
+        logger.error(`[CommunityService] Failed to invite couple ${rawId}: ${err}`);
       }
     }
     return { success: true };
