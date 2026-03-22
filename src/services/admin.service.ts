@@ -199,6 +199,20 @@ export class AdminService {
       message,
     }));
 
-    return prisma.notification.createMany({ data, skipDuplicates: true });
+    const result = await prisma.notification.createMany({ data, skipDuplicates: true });
+
+    // Emit real-time socket event to each recipient's couple room
+    const io = (global as any).io;
+    if (io) {
+      for (const coupleId of validCoupleIds) {
+        io.to(`couple:${coupleId}`).emit('notification:new', {
+          type: 'admin',
+          title,
+          message,
+        });
+      }
+    }
+
+    return result;
   }
 }
