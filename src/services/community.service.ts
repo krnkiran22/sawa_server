@@ -141,6 +141,7 @@ export class CommunityService {
     return { _id: community.id, id: community.id, name: community.name };
   }
 
+  
   async joinCommunity(requestingCoupleId: string, communityId: string) {
     const me = await prisma.couple.findUnique({ where: { coupleId: requestingCoupleId } });
     if (!me) throw new AppError('Profile not found', 404);
