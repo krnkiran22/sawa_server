@@ -139,8 +139,16 @@ export const completeOnboarding = async (req: Request, res: Response) => {
        coupleService.submitAnswers(coupleId!, data.answers)
     ]);
 
+    // 3. Fetch final updated profile to return
+    const couple = await coupleService.getCouple(coupleId!);
+
     console.log(`[CoupleController] completeOnboarding SUCCESS for coupleId: ${coupleId}`);
-    sendSuccess({ res, statusCode: 200, message: 'All Onboarding data completed successfully' });
+    sendSuccess({ 
+      res, 
+      statusCode: 200, 
+      message: 'All Onboarding data completed successfully',
+      data: { couple } 
+    });
   } catch (err) {
     console.error(`[CoupleController] completeOnboarding FAILED:`, err);
     throw err;

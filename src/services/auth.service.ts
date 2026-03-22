@@ -262,12 +262,13 @@ export class AuthService {
     return {
       coupleId: user.coupleId || '',
       token: { accessToken, refreshToken },
-      profile: couple || null,
+      profile: couple ? ({ ...couple, _id: (couple as any).id }) : null,
       user: {
         id: user.id,
+        _id: user.id,
         name: user.name || '',
         role: user.role as any
-      }
+      } as any
     };
   }
 

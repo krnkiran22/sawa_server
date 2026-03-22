@@ -322,7 +322,16 @@ export class CoupleService {
       }
     }
 
-    return prisma.couple.findUnique({ where: { coupleId }, include: { partner1: true, partner2: true } });
+    const updated = await prisma.couple.findUnique({ where: { coupleId }, include: { partner1: true, partner2: true } });
+    return this._formatCouple(updated);
+  }
+
+  private _formatCouple(couple: any) {
+    if (!couple) return null;
+    const formatted = { ...couple, _id: couple.id };
+    if (formatted.partner1) formatted.partner1._id = formatted.partner1.id;
+    if (formatted.partner2) formatted.partner2._id = formatted.partner2.id;
+    return formatted;
   }
 
   async getCouple(coupleId: string): Promise<any | null> {
@@ -347,10 +356,10 @@ export class CoupleService {
       imageUri: m.community.coverImageUrl
     }));
 
-    return {
+    return this._formatCouple({
       ...couple,
       communities
-    };
+    });
   }
 
   async subscribe(coupleId: string) {
