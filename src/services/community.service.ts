@@ -6,34 +6,6 @@ import { logger } from '../utils/logger';
 import { Notification } from '../models/Notification.model';
 import { Match } from '../models/Match.model';
 
-// Initial Seed data (mirrors the frontend static mock data shape)
-const INITIAL_COMMUNITIES = [
-  {
-    name: 'Wanderlusters Club',
-    description: 'We love exploring new places, hunting for hidden gems, and sharing travel stories. If you pack a bag every other weekend, join us!',
-    city: 'Bangalore',
-    maxMembers: 200,
-    tags: ['Travel', 'Adventure'],
-    coverImageUrl: 'https://images.pexels.com/photos/1271619/pexels-photo-1271619.jpeg?auto=compress&cs=tinysrgb&w=800',
-  },
-  {
-    name: 'Weekend Foodies',
-    description: 'A community for couples who bond over finding the best brunch spots, hidden cafes, and street food. Bring your appetite!',
-    city: 'Chennai',
-    maxMembers: 150,
-    tags: ['Food', 'Social'],
-    coverImageUrl: 'https://images.unsplash.com/photo-1502301103665-0b95cc738daf?auto=format&fit=crop&w=800&q=80',
-  },
-  {
-    name: 'Board Game Knights',
-    description: 'For couples who get overly competitive playing Catan, Monopoly, or obscure indie board games. Snacks are mandatory.',
-    city: 'Mumbai',
-    maxMembers: 100,
-    tags: ['Games', 'Indoor'],
-    coverImageUrl: 'https://images.pexels.com/photos/278918/pexels-photo-278918.jpeg?auto=compress&cs=tinysrgb&w=800',
-  },
-];
-
 export class CommunityService {
   async getAllCommunities(requestingCoupleId: string, cityFilter?: string) {
     const me = await Couple.findOne({ coupleId: requestingCoupleId });
