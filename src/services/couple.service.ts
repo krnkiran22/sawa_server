@@ -79,15 +79,24 @@ export class CoupleService {
         }
     }
 
-    // 3. Upsert the Couple document (Crucial for names/photos)
+    // 3. Ensure role-based assignment for partner1/partner2 IDs
+    // We should always keep the 'primary' user as partner1 and 'partner' user as partner2
+    const users = await prisma.user.findMany({ where: { coupleId } });
+    const primaryUser = users.find(u => u.role === 'primary');
+    const partnerUser = users.find(u => u.role === 'partner');
+
+    const partner1Id = primaryUser?.id || primaryUserId; 
+    const partner2Id = partnerUser?.id || partner?.id || null;
+
+    // 4. Upsert the Couple document
     const existingCouple = await prisma.couple.findUnique({ where: { coupleId } });
     
     if (!existingCouple) {
       await prisma.couple.create({
         data: {
           coupleId,
-          partner1Id: primaryUserId,
-          partner2Id: partner?.id || null,
+          partner1Id,
+          partner2Id,
           profileName: `${data.yourName} & ${data.partnerName}`,
           relationshipStatus: data.relationshipStatus,
           locationCity: data.location?.city || 'Unknown',
@@ -99,8 +108,8 @@ export class CoupleService {
       await prisma.couple.update({
         where: { id: existingCouple.id },
         data: {
-          partner1Id: primaryUserId,
-          partner2Id: partner?.id || existingCouple.partner2Id,
+          partner1Id: partner1Id || existingCouple.partner1Id,
+          partner2Id: partner2Id || existingCouple.partner2Id,
           profileName: `${data.yourName} & ${data.partnerName}`,
           relationshipStatus: data.relationshipStatus,
           locationCity: data.location?.city || undefined,
@@ -334,7 +343,12 @@ export class CoupleService {
 
   private _formatCouple(couple: any) {
     if (!couple) return null;
-    const formatted = { ...couple, _id: couple.id };
+    const formatted = { 
+        ...couple, 
+        _id: couple.id,
+        // Add legacy alias for "What we are looking for"
+        lookingFor: (couple.matchCriteria && couple.matchCriteria.length > 0) ? couple.matchCriteria[0] : ""
+    };
     if (formatted.partner1) formatted.partner1._id = formatted.partner1.id;
     if (formatted.partner2) formatted.partner2._id = formatted.partner2.id;
     return formatted;
