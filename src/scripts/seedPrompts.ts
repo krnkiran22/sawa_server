@@ -6,11 +6,11 @@ dotenv.config();
 const MONGODB_URI = process.env.MONGODB_URI;
 
 const DEFAULT_PROMPTS = [
-  "Hello, how are you?",
-  "Let's connect!",
-  "I'd love to chat more.",
-  "Are you free this weekend?",
-  "Coffee sometime?"
+  "What's your favorite family activity?",
+  'Wanna hangout?',
+  'Movie this weekend?',
+  'Coffee sometime this week?',
+  'Any plans for the holidays?',
 ];
 
 async function seedPrompts() {
