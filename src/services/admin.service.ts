@@ -114,7 +114,11 @@ export class AdminService {
       });
     });
 
-    return activities.sort((a, b) => b.happenedAt.getTime() - a.happenedAt.getTime()).slice(0, 20);
+    return activities.sort((a, b) => {
+      const dateA = a.happenedAt ? new Date(a.happenedAt).getTime() : 0;
+      const dateB = b.happenedAt ? new Date(b.happenedAt).getTime() : 0;
+      return dateB - dateA;
+    }).slice(0, 20);
   }
 
   async getPrompts() {
