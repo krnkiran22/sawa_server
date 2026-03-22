@@ -106,7 +106,13 @@ export class MatchService {
                 type: 'match',
                 title: "You've Connected!",
                 message: `You connected with ${targetCouple.profileName}!`,
-                data: { matchId: existingMatch.id, coupleName: targetCouple.profileName, coupleId: targetCouple.coupleId, isPending: false }
+                data: { 
+                  matchId: existingMatch.id, 
+                  coupleId: targetCouple.coupleId, 
+                  profileName: targetCouple.profileName,
+                  coupleName: targetCouple.profileName, // Legacy fallback
+                  isPending: false 
+                }
               },
               {
                 recipientId: targetCouple.coupleId,
@@ -114,7 +120,13 @@ export class MatchService {
                 type: 'match',
                 title: "You've Connected!",
                 message: `You connected with ${me.profileName}!`,
-                data: { matchId: existingMatch.id, coupleName: me.profileName, coupleId: me.coupleId, isPending: false }
+                data: { 
+                  matchId: existingMatch.id, 
+                  coupleId: me.coupleId, 
+                  profileName: me.profileName,
+                  coupleName: me.profileName, // Legacy fallback
+                  isPending: false 
+                }
               }
             ]
           });
@@ -143,7 +155,14 @@ export class MatchService {
             type: 'match',
             title: 'New Connection Request!',
             message: `${me!.profileName} wants to connect with you!`,
-            data: { matchId: newMatch.id, _id: newMatch.id, coupleId: me!.coupleId, profileName: me!.profileName, isPending: true }
+            data: { 
+              matchId: newMatch.id, 
+              _id: newMatch.id, 
+              coupleId: me!.coupleId, 
+              profileName: me!.profileName, 
+              coupleName: me!.profileName, // Legacy fallback
+              isPending: true 
+            }
           }
         });
       } catch (err) {
