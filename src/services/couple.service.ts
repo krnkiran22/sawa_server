@@ -25,98 +25,93 @@ export class CoupleService {
         logger.warn(`[CoupleService.setupProfile] Partners attempted to use same email: ${data.yourEmail}`);
     }
 
-    let partner = null;
-    
-    // 1. Update primary user's details (Non-blocking on email conflict)
-    try {
-      await prisma.user.update({
-        where: { id: primaryUserId },
-        data: {
-          name: data.yourName,
-          dob: data.yourDob || undefined,
-          email: data.yourEmail || undefined,
-          role: 'primary'
-        }
-      });
-    } catch (err: any) {
-        if (err.code === 'P2002' && err.meta?.target?.includes('email')) {
-            logger.warn(`[CoupleService.setupProfile] Primary email already exists, skipping email update.`);
-            // Update just the name/dob
-            await prisma.user.update({
-                where: { id: primaryUserId },
-                data: { name: data.yourName, dob: data.yourDob || undefined, role: 'primary' }
-            });
-        } else {
-            throw err;
-        }
-    }
+    // 1. Identify all users in this couple to handle mapping correctly
+    const users = await prisma.user.findMany({ where: { coupleId } });
+    const me = users.find(u => u.id === primaryUserId);
+    if (!me) throw new AppError('Calling user not found in couple', 404);
 
-    // 2. Find and update the partner user (Non-blocking on email conflict)
-    partner = await prisma.user.findFirst({
-        where: { coupleId, role: 'partner' }
-    });
-    
-    if (partner) {
+    const isMePrimary = me.role === 'primary';
+    const primaryUser = isMePrimary ? me : users.find(u => u.role === 'primary');
+    const partnerUser = isMePrimary ? users.find(u => u.role === 'partner') : me;
+
+    // 2. Update the Primary User
+    if (primaryUser) {
+        const pName = isMePrimary ? data.yourName : data.partnerName;
+        const pDob = isMePrimary ? data.yourDob : data.partnerDob;
+        const pEmail = isMePrimary ? data.yourEmail : data.partnerEmail;
+
         try {
             await prisma.user.update({
-                where: { id: partner.id },
-                data: {
-                    name: data.partnerName,
-                    dob: data.partnerDob || undefined,
-                    email: data.partnerEmail || undefined,
+                where: { id: primaryUser.id },
+                data: { 
+                    name: pName || undefined, 
+                    dob: pDob || undefined, 
+                    email: pEmail || undefined 
                 }
             });
         } catch (err: any) {
             if (err.code === 'P2002' && err.meta?.target?.includes('email')) {
-                logger.warn(`[CoupleService.setupProfile] Partner email already exists, skipping email update.`);
+                logger.warn(`[CoupleService.setupProfile] Primary email conflict, skipping email update.`);
                 await prisma.user.update({
-                    where: { id: partner.id },
-                    data: { name: data.partnerName, dob: data.partnerDob || undefined }
+                    where: { id: primaryUser.id },
+                    data: { name: pName || undefined, dob: pDob || undefined }
                 });
-            } else {
-                throw err;
             }
         }
     }
 
-    // 3. Ensure role-based assignment for partner1/partner2 IDs
-    // We should always keep the 'primary' user as partner1 and 'partner' user as partner2
-    const users = await prisma.user.findMany({ where: { coupleId } });
-    const primaryUser = users.find(u => u.role === 'primary');
-    const partnerUser = users.find(u => u.role === 'partner');
+    // 3. Update the Partner User
+    if (partnerUser) {
+        const sName = isMePrimary ? data.partnerName : data.yourName;
+        const sDob = isMePrimary ? data.partnerDob : data.yourDob;
+        const sEmail = isMePrimary ? data.partnerEmail : data.yourEmail;
 
-    const partner1Id = primaryUser?.id || primaryUserId; 
-    const partner2Id = partnerUser?.id || partner?.id || null;
-
-    // 4. Upsert the Couple document
-    const existingCouple = await prisma.couple.findUnique({ where: { coupleId } });
-    
-    if (!existingCouple) {
-      await prisma.couple.create({
-        data: {
-          coupleId,
-          partner1Id,
-          partner2Id,
-          profileName: `${data.yourName} & ${data.partnerName}`,
-          relationshipStatus: data.relationshipStatus,
-          locationCity: data.location?.city || 'Unknown',
-          locationCountry: data.location?.country || 'India',
-          isProfileComplete: false,
+        try {
+            await prisma.user.update({
+                where: { id: partnerUser.id },
+                data: { 
+                    name: sName || undefined, 
+                    dob: sDob || undefined, 
+                    email: sEmail || undefined 
+                }
+            });
+        } catch (err: any) {
+            if (err.code === 'P2002' && err.meta?.target?.includes('email')) {
+                logger.warn(`[CoupleService.setupProfile] Partner email conflict, skipping email update.`);
+                await prisma.user.update({
+                    where: { id: partnerUser.id },
+                    data: { name: sName || undefined, dob: sDob || undefined }
+                });
+            }
         }
-      });
-    } else {
-      await prisma.couple.update({
-        where: { id: existingCouple.id },
-        data: {
-          partner1Id: partner1Id || existingCouple.partner1Id,
-          partner2Id: partner2Id || existingCouple.partner2Id,
-          profileName: `${data.yourName} & ${data.partnerName}`,
-          relationshipStatus: data.relationshipStatus,
-          locationCity: data.location?.city || undefined,
-          locationCountry: data.location?.country || undefined,
-        }
-      });
     }
+
+    // 4. Update the Couple Profile
+    const finalPrimaryName = isMePrimary ? data.yourName : data.partnerName;
+    const finalPartnerName = isMePrimary ? data.partnerName : data.yourName;
+    const profileName = `${finalPrimaryName} & ${finalPartnerName}`;
+
+    await prisma.couple.upsert({
+        where: { coupleId },
+        create: {
+            coupleId,
+            partner1Id: primaryUser?.id || null,
+            partner2Id: partnerUser?.id || null,
+            profileName,
+            relationshipStatus: data.relationshipStatus,
+            locationCity: data.location?.city || 'Unknown',
+            locationCountry: data.location?.country || 'India',
+            isProfileComplete: false,
+        },
+        update: {
+            partner1Id: primaryUser?.id || undefined,
+            partner2Id: partnerUser?.id || undefined,
+            profileName,
+            relationshipStatus: data.relationshipStatus,
+            locationCity: data.location?.city || undefined,
+            locationCountry: data.location?.country || undefined,
+        }
+    });
   }
 
   /**
@@ -175,9 +170,8 @@ export class CoupleService {
       }
     });
 
-    // ─── AI BIO GENERATION (BACKGROUND) ─────────────────────────────────────
-    (async () => {
-      try {
+    // ─── AI BIO GENERATION (SYNCHRONOUS FOR ONBOARDING RESPONSE) ───────────
+    try {
         const questionMap: Record<string, string> = {
           q1: 'Life Stage', q2: 'Couple Personality', q3: 'Favorite Activities',
           q4: 'Meeting Frequency', q5: 'What makes a good match', q6: 'Things to avoid',
@@ -206,17 +200,13 @@ export class CoupleService {
           const updateObj: any = {};
           if (aiResponse.bio) updateObj.bio = aiResponse.bio;
           if (aiResponse.matchCriteria && aiResponse.matchCriteria.length > 0) {
-            // Store the whole paragraph as the first element of the array for simplicity,
-            // or join it if we want it to remain an array of short strings.
-            // Since the AI now returns a single paragraph, we store it as is.
             updateObj.matchCriteria = aiResponse.matchCriteria;
           }
           await prisma.couple.update({ where: { coupleId }, data: updateObj });
         }
-      } catch (aiErr) {
+    } catch (aiErr) {
         logger.error(`[CoupleService] AI background generation failed:`, aiErr);
-      }
-    })();
+    }
   }
 
   async updateProfile(
