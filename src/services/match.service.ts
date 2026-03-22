@@ -169,7 +169,7 @@ export class MatchService {
           recipient: targetCouple._id,
           sender: me._id,
           type: 'match',
-          title: "New Connection Request! ❤️",
+          title: 'New Connection Request!',
           message: `${me.profileName} wants to connect with you! Say hello back to start chatting.`,
           data: { 
             matchId: newMatch._id, 
