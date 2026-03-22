@@ -22,12 +22,13 @@ export class CoupleService {
   ) {
     // 0. Preliminary validation: Ensure both emails are not the same
     if (data.yourEmail && data.partnerEmail && data.yourEmail.toLowerCase() === data.partnerEmail.toLowerCase()) {
-        throw new AppError('Both partners cannot use the same email address.', 400, 'DUPLICATE_EMAIL');
+        logger.warn(`[CoupleService.setupProfile] Partners attempted to use same email: ${data.yourEmail}`);
     }
 
     let partner = null;
+    
+    // 1. Update primary user's details (Non-blocking on email conflict)
     try {
-      // 1. Update primary user's details
       await prisma.user.update({
         where: { id: primaryUserId },
         data: {
@@ -37,60 +38,75 @@ export class CoupleService {
           role: 'primary'
         }
       });
-
-      // 2. Find and update the partner user
-      partner = await prisma.user.findFirst({
-          where: { coupleId, role: 'partner' }
-      });
-      
-      if (partner) {
-          await prisma.user.update({
-              where: { id: partner.id },
-              data: {
-                  name: data.partnerName,
-                  dob: data.partnerDob || undefined,
-                  email: data.partnerEmail || undefined,
-              }
-          });
-      }
-
-      // 3. Upsert the Couple document
-      const existingCouple = await prisma.couple.findUnique({ where: { coupleId } });
-      
-      if (!existingCouple) {
-        await prisma.couple.create({
-          data: {
-            coupleId,
-            partner1Id: primaryUserId,
-            partner2Id: partner?.id || null,
-            profileName: `${data.yourName} & ${data.partnerName}`,
-            relationshipStatus: data.relationshipStatus,
-            locationCity: data.location?.city || 'Unknown',
-            locationCountry: data.location?.country || 'India',
-            isProfileComplete: false,
-          }
-        });
-      } else {
-        await prisma.couple.update({
-          where: { id: existingCouple.id },
-          data: {
-            partner1Id: primaryUserId,
-            partner2Id: partner?.id || existingCouple.partner2Id,
-            profileName: `${data.yourName} & ${data.partnerName}`,
-            relationshipStatus: data.relationshipStatus,
-            locationCity: data.location?.city || undefined,
-            locationCountry: data.location?.country || undefined,
-          }
-        });
-      }
     } catch (err: any) {
-        if (err.code === 'P2002') {
-            const target = err.meta?.target || [];
-            if (target.includes('email')) {
-                throw new AppError('One of the email addresses is already in use by another account.', 400, 'EMAIL_ALREADY_EXISTS');
+        if (err.code === 'P2002' && err.meta?.target?.includes('email')) {
+            logger.warn(`[CoupleService.setupProfile] Primary email already exists, skipping email update.`);
+            // Update just the name/dob
+            await prisma.user.update({
+                where: { id: primaryUserId },
+                data: { name: data.yourName, dob: data.yourDob || undefined, role: 'primary' }
+            });
+        } else {
+            throw err;
+        }
+    }
+
+    // 2. Find and update the partner user (Non-blocking on email conflict)
+    partner = await prisma.user.findFirst({
+        where: { coupleId, role: 'partner' }
+    });
+    
+    if (partner) {
+        try {
+            await prisma.user.update({
+                where: { id: partner.id },
+                data: {
+                    name: data.partnerName,
+                    dob: data.partnerDob || undefined,
+                    email: data.partnerEmail || undefined,
+                }
+            });
+        } catch (err: any) {
+            if (err.code === 'P2002' && err.meta?.target?.includes('email')) {
+                logger.warn(`[CoupleService.setupProfile] Partner email already exists, skipping email update.`);
+                await prisma.user.update({
+                    where: { id: partner.id },
+                    data: { name: data.partnerName, dob: data.partnerDob || undefined }
+                });
+            } else {
+                throw err;
             }
         }
-        throw err;
+    }
+
+    // 3. Upsert the Couple document (Crucial for names/photos)
+    const existingCouple = await prisma.couple.findUnique({ where: { coupleId } });
+    
+    if (!existingCouple) {
+      await prisma.couple.create({
+        data: {
+          coupleId,
+          partner1Id: primaryUserId,
+          partner2Id: partner?.id || null,
+          profileName: `${data.yourName} & ${data.partnerName}`,
+          relationshipStatus: data.relationshipStatus,
+          locationCity: data.location?.city || 'Unknown',
+          locationCountry: data.location?.country || 'India',
+          isProfileComplete: false,
+        }
+      });
+    } else {
+      await prisma.couple.update({
+        where: { id: existingCouple.id },
+        data: {
+          partner1Id: primaryUserId,
+          partner2Id: partner?.id || existingCouple.partner2Id,
+          profileName: `${data.yourName} & ${data.partnerName}`,
+          relationshipStatus: data.relationshipStatus,
+          locationCity: data.location?.city || undefined,
+          locationCountry: data.location?.country || undefined,
+        }
+      });
     }
   }
 

@@ -155,17 +155,31 @@ export class MatchService {
   }
 
   async skipCouple(requestingCoupleId: string, targetCoupleIdStr: string) {
-    const me = await prisma.couple.findUnique({ where: { coupleId: requestingCoupleId }, select: { id: true } });
-    if (!me) throw new AppError('Profile not found', 404);
+    const me = await prisma.couple.findUnique({ 
+        where: { coupleId: requestingCoupleId }, 
+        select: { id: true, coupleId: true } 
+    });
+    if (!me) {
+        logger.error(`[MatchService.skipCouple] Requesting couple not found: ${requestingCoupleId}`);
+        throw new AppError('Profile not found', 404);
+    }
 
     const target = await prisma.couple.findFirst({
         where: { OR: [{ id: targetCoupleIdStr }, { coupleId: targetCoupleIdStr }] },
-        select: { id: true }
+        select: { id: true, coupleId: true }
     });
-    if (!target) return { skipped: true };
+    if (!target) {
+        logger.warn(`[MatchService.skipCouple] Target couple not found: ${targetCoupleIdStr}`);
+        return { skipped: true };
+    }
 
     await prisma.match.create({
-      data: { couple1Id: me.id, couple2Id: target.id, status: 'skipped', actionById: me.id }
+      data: { 
+          couple1Id: me.id, 
+          couple2Id: target.id, 
+          status: 'skipped', 
+          actionById: me.id 
+      }
     });
 
     return { skipped: true };
