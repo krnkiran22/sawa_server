@@ -93,7 +93,7 @@ export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
 
   const result = await authService.verifyOtp(yourPhone, yourOtp, partnerPhone, partnerOtp);
 
-  sendSuccess({
+    sendSuccess({
     res,
     statusCode: 200,
     message: 'OTP verified successfully',
@@ -104,6 +104,7 @@ export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
       // Partner tokens returned so the partner device can also log in
       partnerAccessToken: result.partnerToken.accessToken,
       partnerRefreshToken: result.partnerToken.refreshToken,
+      yourUser: result.yourUser,
     },
   });
 };

@@ -25,79 +25,124 @@ export class CoupleService {
         logger.warn(`[CoupleService.setupProfile] Partners attempted to use same email: ${data.yourEmail}`);
     }
 
-    // 1. Identify roles
-    const users = await prisma.user.findMany({ where: { coupleId } });
-    const primaryUser = users.find((u: any) => u.role === 'primary');
-    const partnerUser = users.find((u: any) => u.role === 'partner');
-
-    // 2. Update the Primary User (Top form field)
-    if (primaryUser) {
-        try {
+    let partner = null;
+    
+    // 1. Update primary user's details (Non-blocking on email conflict)
+    try {
+      await prisma.user.update({
+        where: { id: primaryUserId },
+        data: {
+          name: data.yourName,
+          dob: data.yourDob || undefined,
+          email: data.yourEmail || undefined,
+          role: 'primary'
+        }
+      });
+    } catch (err: any) {
+        if (err.code === 'P2002' && err.meta?.target?.includes('email')) {
+            logger.warn(`[CoupleService.setupProfile] Primary email already exists, skipping email update.`);
+            // Update just the name/dob
             await prisma.user.update({
-                where: { id: primaryUser.id },
-                data: { 
-                    name: data.yourName || undefined, 
-                    dob: data.yourDob || undefined, 
-                    email: data.yourEmail || undefined 
-                }
+                where: { id: primaryUserId },
+                data: { name: data.yourName, dob: data.yourDob || undefined, role: 'primary' }
             });
-        } catch (err: any) {
-            if (err.code === 'P2002' && err.meta?.target?.includes('email')) {
-                logger.warn(`[CoupleService.setupProfile] Primary email conflict, skipping.`);
-                await prisma.user.update({
-                    where: { id: primaryUser.id },
-                    data: { name: data.yourName || undefined, dob: data.yourDob || undefined }
-                });
-            }
+        } else {
+            throw err;
         }
     }
 
-    // 3. Update the Partner User (Pink form field)
-    if (partnerUser) {
-        try {
-            await prisma.user.update({
-                where: { id: partnerUser.id },
-                data: { 
-                    name: data.partnerName || undefined, 
-                    dob: data.partnerDob || undefined, 
-                    email: data.partnerEmail || undefined 
-                }
-            });
-        } catch (err: any) {
-            if (err.code === 'P2002' && err.meta?.target?.includes('email')) {
-                logger.warn(`[CoupleService.setupProfile] Partner email conflict, skipping.`);
-                await prisma.user.update({
-                    where: { id: partnerUser.id },
-                    data: { name: data.partnerName || undefined, dob: data.partnerDob || undefined }
-                });
-            }
-        }
-    }
-
-    // 4. Update the Couple Profile
-    const profileName = `${data.yourName} & ${data.partnerName}`;
-
-    await prisma.couple.upsert({
-        where: { coupleId },
-        create: {
-            coupleId,
-            partner1Id: primaryUser?.id || null,
-            partner2Id: partnerUser?.id || null,
-            profileName,
-            relationshipStatus: data.relationshipStatus,
-            locationCity: data.location?.city || 'Unknown',
-            locationCountry: data.location?.country || 'India',
-            isProfileComplete: false,
-        },
-        update: {
-            partner1Id: primaryUser?.id || undefined,
-            partner2Id: partnerUser?.id || undefined,
-            profileName,
-            relationshipStatus: data.relationshipStatus,
-            locationCity: data.location?.city || undefined,
-            locationCountry: data.location?.country || undefined,
-        }
+    // 2. Find and update the partner user (Non-blocking on email conflict)
+    partner = await prisma.user.findFirst({
+        where: { coupleId, role: 'partner' }
     });
+    
+    if (partner) {
+        try {
+            await prisma.user.update({
+                where: { id: partner.id },
+                data: {
+                    name: data.partnerName,
+                    dob: data.partnerDob || undefined,
+                    email: data.partnerEmail || undefined,
+                }
+            });
+        } catch (err: any) {
+            if (err.code === 'P2002' && err.meta?.target?.includes('email')) {
+                logger.warn(`[CoupleService.setupProfile] Partner email already exists, skipping email update.`);
+                await prisma.user.update({
+                    where: { id: partner.id },
+                    data: { name: data.partnerName, dob: data.partnerDob || undefined }
+                });
+            } else {
+                throw err;
+            }
+        }
+    } else if (data.partnerName) {
+        try {
+            partner = await prisma.user.create({
+                data: {
+                    name: data.partnerName,
+                    dob: data.partnerDob || undefined,
+                    email: data.partnerEmail || undefined,
+                    role: 'partner',
+                    coupleId: coupleId
+                }
+            });
+        } catch (err: any) {
+            if (err.code === 'P2002' && err.meta?.target?.includes('email')) {
+                logger.warn(`[CoupleService.setupProfile] Partner email already exists during create, skipping email.`);
+                partner = await prisma.user.create({
+                    data: {
+                        name: data.partnerName,
+                        dob: data.partnerDob || undefined,
+                        role: 'partner',
+                        coupleId: coupleId
+                    }
+                });
+            } else {
+                throw err;
+            }
+        }
+    }
+
+    // 3. Ensure role-based assignment for partner1/partner2 IDs
+    // We should always keep the 'primary' user as partner1 and 'partner' user as partner2
+    const users = await prisma.user.findMany({ where: { coupleId } });
+    const primaryUser = users.find(u => u.role === 'primary');
+    const partnerUser = users.find(u => u.role === 'partner');
+
+    const partner1Id = primaryUser?.id || primaryUserId; 
+    const partner2Id = partnerUser?.id || partner?.id || null;
+
+    // 4. Upsert the Couple document
+    const existingCouple = await prisma.couple.findUnique({ where: { coupleId } });
+    
+    if (!existingCouple) {
+      await prisma.couple.create({
+        data: {
+          coupleId,
+          partner1Id,
+          partner2Id,
+          profileName: `${data.yourName} & ${data.partnerName}`,
+          relationshipStatus: data.relationshipStatus,
+          locationCity: data.location?.city || 'Unknown',
+          locationCountry: data.location?.country || 'India',
+          isProfileComplete: false,
+        }
+      });
+    } else {
+      await prisma.couple.update({
+        where: { id: existingCouple.id },
+        data: {
+          partner1Id: partner1Id || existingCouple.partner1Id,
+          partner2Id: partner2Id || existingCouple.partner2Id,
+          profileName: `${data.yourName} & ${data.partnerName}`,
+          relationshipStatus: data.relationshipStatus,
+          locationCity: data.location?.city || undefined,
+          locationCountry: data.location?.country || undefined,
+        }
+      });
+    }
   }
 
   /**
@@ -156,8 +201,9 @@ export class CoupleService {
       }
     });
 
-    // ─── AI BIO GENERATION (SYNCHRONOUS FOR ONBOARDING RESPONSE) ───────────
-    try {
+    // ─── AI BIO GENERATION (BACKGROUND) ─────────────────────────────────────
+    (async () => {
+      try {
         const questionMap: Record<string, string> = {
           q1: 'Life Stage', q2: 'Couple Personality', q3: 'Favorite Activities',
           q4: 'Meeting Frequency', q5: 'What makes a good match', q6: 'Things to avoid',
@@ -186,13 +232,17 @@ export class CoupleService {
           const updateObj: any = {};
           if (aiResponse.bio) updateObj.bio = aiResponse.bio;
           if (aiResponse.matchCriteria && aiResponse.matchCriteria.length > 0) {
+            // Store the whole paragraph as the first element of the array for simplicity,
+            // or join it if we want it to remain an array of short strings.
+            // Since the AI now returns a single paragraph, we store it as is.
             updateObj.matchCriteria = aiResponse.matchCriteria;
           }
           await prisma.couple.update({ where: { coupleId }, data: updateObj });
         }
-    } catch (aiErr) {
+      } catch (aiErr) {
         logger.error(`[CoupleService] AI background generation failed:`, aiErr);
-    }
+      }
+    })();
   }
 
   async updateProfile(
@@ -245,6 +295,7 @@ export class CoupleService {
                 : [data.preferences.matchCriteria];
         }
     }
+
     // Explicit check for matchCriteria at top level (if app sends it that way)
     if ((data as any).matchCriteria) {
         updateData.matchCriteria = Array.isArray((data as any).matchCriteria)
@@ -252,24 +303,28 @@ export class CoupleService {
             : [(data as any).matchCriteria];
     }
 
-    // 3. Identity roles for names update
-    const users = await prisma.user.findMany({ where: { coupleId } });
-    const primaryUser = users.find((u: any) => u.role === 'primary');
-    const partnerUser = users.find((u: any) => u.role === 'partner');
+    const isPartner1Me = requestingUserId && coupleDoc.partner1Id === requestingUserId;
+    const myId = isPartner1Me ? coupleDoc.partner1Id : coupleDoc.partner2Id;
+    const partnerId = isPartner1Me ? coupleDoc.partner2Id : coupleDoc.partner1Id;
 
+    // 3. Dynamic Profile Name update
     if (data.yourName || data.partnerName) {
-      const pName = data.yourName || primaryUser?.name || 'User 1';
-      const sName = data.partnerName || partnerUser?.name || 'User 2';
-      updateData.profileName = `${pName} & ${sName}`;
+      const u1 = await prisma.user.findUnique({ where: { id: coupleDoc.partner1Id || '' } });
+      const u2 = await prisma.user.findUnique({ where: { id: coupleDoc.partner2Id || '' } });
+
+      let p1Name = isPartner1Me ? (data.yourName || u1?.name) : (data.partnerName || u1?.name);
+      let p2Name = isPartner1Me ? (data.partnerName || u2?.name) : (data.yourName || u2?.name);
+      
+      updateData.profileName = `${p1Name || 'User 1'} & ${p2Name || 'User 2'}`;
     }
 
     await prisma.couple.update({ where: { coupleId }, data: updateData });
 
-    // 4. Update individual Users based on Roles (Top form -> Primary, Bottom form -> Partner)
-    if (primaryUser && (data.yourName || data.yourDob || data.yourEmail)) {
+    // 4. Update individual Users
+    if (myId && (data.yourName || data.yourDob || data.yourEmail)) {
       try {
         await prisma.user.update({
-            where: { id: primaryUser.id },
+            where: { id: myId },
             data: {
               name: data.yourName || undefined,
               dob: data.yourDob || undefined,
@@ -278,19 +333,19 @@ export class CoupleService {
         });
       } catch (err: any) {
         if (err.code === 'P2002' && err.meta?.target?.includes('email')) {
-             logger.warn(`[CoupleService.updateProfile] Email conflict for primaryUser, skipping email update.`);
+             logger.warn(`[CoupleService.updateProfile] Email conflict for myId ${myId}, skipping email update.`);
              await prisma.user.update({
-                where: { id: primaryUser.id },
+                where: { id: myId },
                 data: { name: data.yourName || undefined, dob: data.yourDob || undefined }
              });
         }
       }
     }
 
-    if (partnerUser && (data.partnerName || data.partnerDob || data.partnerEmail)) {
+    if (partnerId && (data.partnerName || data.partnerDob || data.partnerEmail)) {
       try {
         await prisma.user.update({
-            where: { id: partnerUser.id },
+            where: { id: partnerId },
             data: {
               name: data.partnerName || undefined,
               dob: data.partnerDob || undefined,
@@ -299,9 +354,9 @@ export class CoupleService {
         });
       } catch (err: any) {
         if (err.code === 'P2002' && err.meta?.target?.includes('email')) {
-             logger.warn(`[CoupleService.updateProfile] Email conflict for partnerUser, skipping email update.`);
+             logger.warn(`[CoupleService.updateProfile] Email conflict for partnerId ${partnerId}, skipping email update.`);
              await prisma.user.update({
-                where: { id: partnerUser.id },
+                where: { id: partnerId },
                 data: { name: data.partnerName || undefined, dob: data.partnerDob || undefined }
              });
         }
@@ -317,6 +372,10 @@ export class CoupleService {
     const formatted = { 
         ...couple, 
         _id: couple.id,
+        location: {
+            city: couple.locationCity,
+            country: couple.locationCountry
+        },
         // Add legacy alias for "What we are looking for"
         lookingFor: (couple.matchCriteria && couple.matchCriteria.length > 0) ? couple.matchCriteria[0] : ""
     };

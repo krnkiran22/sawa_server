@@ -160,12 +160,12 @@ export const createCouple = async (_req: Request, _res: Response) => {
 };
 
 export const getMyCouple = async (req: Request, res: Response) => {
-  const { coupleId } = req.user!;
+  const { coupleId, userId } = req.user!;
   const couple = await coupleService.getCouple(coupleId!);
   if (!couple) {
     throw new AppError('Couple profile not found', 404);
   }
-  sendSuccess({ res, data: { couple } });
+  sendSuccess({ res, data: { couple, userId } });
 };
 
 export const updateMyCouple = async (req: Request, res: Response) => {

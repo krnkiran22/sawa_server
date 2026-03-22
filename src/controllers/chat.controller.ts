@@ -15,6 +15,7 @@ export const getPrivateMessages = async (req: Request, res: Response): Promise<v
     },
     include: {
       sender: { select: { coupleId: true } },
+      senderUser: { select: { role: true } },
     },
     orderBy: { createdAt: 'asc' },
     take: 100,
@@ -27,6 +28,7 @@ export const getPrivateMessages = async (req: Request, res: Response): Promise<v
       contentType: m.contentType,
       senderName: m.senderName,
       senderUserId: m.senderUserId,
+      senderRole: m.senderUser?.role,
       senderCoupleId: m.sender?.coupleId, 
       senderIndividualName: m.senderName,
       timestamp: m.createdAt,

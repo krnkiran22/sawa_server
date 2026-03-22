@@ -249,6 +249,10 @@ export class CommunityService {
     const isMember = c.members.some((m: any) => m.coupleId === me.id);
     const isAdmin = c.admins.some((a: any) => a.coupleId === me.id);
     
+    const invitation = await prisma.notification.findFirst({
+        where: { recipientId: me.id, type: 'community', data: { path: ['communityId'], equals: communityId } as any }
+    });
+    
     const hosts = c.admins.map(a => ({
         id: a.couple.id,
         coupleId: a.couple.coupleId,
@@ -267,6 +271,7 @@ export class CommunityService {
       imageUri: c.coverImageUrl,
       isMember,
       isAdmin,
+      isInvited: !!invitation,
       hosts,
       members: c.members.map((m: any) => ({
         id: m.couple.id,
