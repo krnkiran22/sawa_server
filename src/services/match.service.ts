@@ -106,7 +106,7 @@ export class MatchService {
                 type: 'match',
                 title: "You've Connected!",
                 message: `You connected with ${targetCouple.profileName}!`,
-                data: { matchId: existingMatch.id, coupleName: targetCouple.profileName }
+                data: { matchId: existingMatch.id, coupleName: targetCouple.profileName, coupleId: targetCouple.coupleId, isPending: false }
               },
               {
                 recipientId: targetCouple.coupleId,
@@ -114,7 +114,7 @@ export class MatchService {
                 type: 'match',
                 title: "You've Connected!",
                 message: `You connected with ${me.profileName}!`,
-                data: { matchId: existingMatch.id, coupleName: me.profileName }
+                data: { matchId: existingMatch.id, coupleName: me.profileName, coupleId: me.coupleId, isPending: false }
               }
             ]
           });
@@ -188,7 +188,9 @@ export class MatchService {
   async getIncomingRequests(requestingCoupleId: string, coupleMongoId?: string) {
     let meId;
     if (coupleMongoId) {
-      meId = coupleMongoId;
+      const meProfile = await prisma.couple.findUnique({ where: { id: coupleMongoId }, select: { coupleId: true } });
+      if (!meProfile) throw new AppError('Profile not found', 404);
+      meId = meProfile.coupleId;
     } else {
       const me = await prisma.couple.findUnique({ where: { coupleId: requestingCoupleId }, select: { id: true, coupleId: true } });
       if (!me) throw new AppError('Profile not found', 404);
@@ -221,7 +223,9 @@ export class MatchService {
   async getMatches(requestingCoupleId: string, coupleMongoId?: string) {
     let meId: string;
     if (coupleMongoId) {
-      meId = coupleMongoId;
+      const meProfile = await prisma.couple.findUnique({ where: { id: coupleMongoId }, select: { coupleId: true } });
+      if (!meProfile) throw new AppError('Profile not found', 404);
+      meId = meProfile.coupleId;
     } else {
       const me = await prisma.couple.findUnique({ where: { coupleId: requestingCoupleId }, select: { id: true, coupleId: true } });
       if (!me) throw new AppError('Profile not found', 404);
