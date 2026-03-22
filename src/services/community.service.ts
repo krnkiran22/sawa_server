@@ -351,6 +351,33 @@ export class CommunityService {
       'data.communityId': c._id,
     });
 
+    const adminCouples = await Couple.find({ _id: { $in: c.admins } })
+      .populate('partner1', 'name')
+      .populate('partner2', 'name')
+      .lean();
+
+    /** One row per hosting couple (combined profile — same shape as `members` items). */
+    const hosts = adminCouples.map((ac) => {
+      const city = ac.location?.city || 'Unknown';
+      const p1 = ac.partner1 as { name?: string } | null;
+      const p2 = ac.partner2 as { name?: string } | null;
+      let name = (ac.profileName || '').trim();
+      if (!name) {
+        const a = p1?.name?.trim();
+        const b = p2?.name?.trim();
+        if (a && b) name = `${a} & ${b}`;
+        else name = a || b || 'Host';
+      }
+      return {
+        id: String(ac._id),
+        coupleId: ac.coupleId,
+        name,
+        city,
+        accent: '#DBCBA6',
+        image: ac.primaryPhoto,
+      };
+    });
+
     return {
       id: c._id,
       title: c.name,
@@ -361,6 +388,7 @@ export class CommunityService {
       isMember,
       isAdmin,
       isInvited: !!invitation,
+      hosts,
       members: (c.members as any).map((m: any) => ({
         id: m._id, // Internal ID for keys
         coupleId: m.coupleId, // Business ID for profile navigation
