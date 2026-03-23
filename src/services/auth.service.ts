@@ -222,6 +222,19 @@ export class AuthService {
     if (!user) {
        if (otp === '1234') {
           coupleId = (coupleId.startsWith('bypass-')) ? crypto.randomUUID() : coupleId;
+          
+          // CRITICAL: Ensure Couple exists BEFORE upserting the user to avoid FK violation
+          await prisma.couple.upsert({
+            where: { coupleId },
+            update: {},
+            create: {
+                coupleId,
+                profileName: 'Sawa Couple',
+                isProfileComplete: false,
+                isSubscribed: false
+            }
+          });
+
           user = await userRepository.upsertByPhone(phone, coupleId, 'primary');
           await userRepository.markVerified(phone);
        } else {
