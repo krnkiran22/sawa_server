@@ -43,7 +43,7 @@ export class AdminController {
     try {
       logger.info('🛰️ Admin fetching dashboard data...');
       
-      const [stats, users, couples, communities, activities, prompts, reports, chartData, userLogs, communityLogs] = await Promise.all([
+      const [stats, users, couples, communities, activities, prompts, reports, chartData, userLogs, communityLogs, cityDistribution] = await Promise.all([
         adminService.getStats(),
         adminService.getUsers(),
         adminService.getCouples(),
@@ -54,6 +54,7 @@ export class AdminController {
         adminService.getChartData(),
         adminService.getUserLogs(),
         adminService.getCommunityLogs(),
+        adminService.getCityDistribution(),
       ]);
 
       res.status(200).json({
@@ -69,11 +70,22 @@ export class AdminController {
           chartData,
           userLogs,
           communityLogs,
+          cityDistribution,
         },
       });
     } catch (err: any) {
       logger.error('❌ Admin Fetch Error:', err.message);
       res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  }
+
+  async deleteCouple(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      await adminService.deleteCouple(id);
+      res.status(200).json({ success: true, message: 'Couple and associated users deleted' });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
     }
   }
 

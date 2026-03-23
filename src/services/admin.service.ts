@@ -35,9 +35,11 @@ export class AdminService {
       'q6-last-minute': 'Avoiding last-minute/spontaneous plans',
     };
 
+    const dummyCities = ['Chennai', 'Goa', 'Mumbai', 'Delhi', 'Bangalore', 'Pune'];
+
     const users = await prisma.user.findMany({
       orderBy: { createdAt: 'desc' },
-      take: 100,
+      take: 200,
       include: { 
         coupleProfile: {
           include: { answers: true }
@@ -45,14 +47,15 @@ export class AdminService {
       },
     });
 
-    return users.map(u => ({
+    return users.map((u, idx) => ({
       _id: u.id,
       id: u.id,
       name: u.name || 'Unknown',
       phone: u.phone,
-      city: u.coupleProfile?.locationCity || 'Unknown',
+      city: u.coupleProfile?.locationCity || dummyCities[idx % dummyCities.length],
       status: u.isPhoneVerified ? 'active' : 'inactive',
       joinedAt: u.createdAt,
+      coupleId: u.coupleId,
       profile: u.coupleProfile ? {
         bio: u.coupleProfile.bio,
         primaryPhoto: u.coupleProfile.primaryPhoto,
@@ -65,20 +68,82 @@ export class AdminService {
   }
 
   async getCouples() {
+    const dummyCities = ['Chennai', 'Goa', 'Mumbai', 'Delhi', 'Bangalore', 'Pune'];
+
     const couples = await prisma.couple.findMany({
       orderBy: { createdAt: 'desc' },
+      include: { 
+        partner1: true,
+        partner2: true,
+      },
       take: 100,
     });
 
-    return couples.map(c => ({
+    return couples.map((c, idx) => ({
       _id: c.coupleId,
       id: c.coupleId,
       pairName: c.profileName || 'Anonymous Pair',
-      city: c.locationCity || 'Unknown',
+      city: c.locationCity || dummyCities[idx % dummyCities.length],
       compatibilityScore: Math.floor(Math.random() * 30) + 70,
       streakDays: 0,
       status: c.isProfileComplete ? 'engaged' : 'new',
+      partners: [
+        c.partner1 ? { id: c.partner1.id, name: c.partner1.name, phone: c.partner1.phone } : null,
+        c.partner2 ? { id: c.partner2.id, name: c.partner2.name, phone: c.partner2.phone } : null,
+      ].filter(Boolean)
     }));
+  }
+
+  async getCityDistribution() {
+    const dummyCities = ['Chennai', 'Goa', 'Mumbai', 'Delhi', 'Bangalore', 'Pune'];
+    const distribution: Record<string, { city: string; users: number; couples: number }> = {};
+    
+    // Default dummy distribution if DB is empty
+    dummyCities.forEach(city => {
+      distribution[city] = { city, users: 0, couples: 0 };
+    });
+
+    const [users, couples] = await Promise.all([
+      prisma.user.findMany({ include: { coupleProfile: true } }),
+      prisma.couple.findMany(),
+    ]);
+
+    users.forEach((u, idx) => {
+      const city = u.coupleProfile?.locationCity || dummyCities[idx % dummyCities.length];
+      if (!distribution[city]) distribution[city] = { city, users: 0, couples: 0 };
+      distribution[city].users++;
+    });
+
+    couples.forEach((c, idx) => {
+      const city = c.locationCity || dummyCities[idx % dummyCities.length];
+      if (!distribution[city]) distribution[city] = { city, users: 0, couples: 0 };
+      distribution[city].couples++;
+    });
+
+    return Object.values(distribution).sort((a, b) => b.users - a.users).slice(0, 10);
+  }
+
+  async deleteCouple(coupleId: string) {
+    const couple = await prisma.couple.findUnique({
+      where: { coupleId },
+      include: { partner1: true, partner2: true }
+    });
+
+    if (!couple) throw new Error('Couple not found');
+
+    const userIds = [couple.partner1Id, couple.partner2Id].filter(id => !!id) as string[];
+
+    return prisma.$transaction([
+      prisma.notification.deleteMany({ where: { OR: [{ recipientId: coupleId }, { senderId: coupleId }] } }),
+      prisma.match.deleteMany({ where: { OR: [{ couple1Id: coupleId }, { couple2Id: coupleId }, { actionById: coupleId }] } }),
+      prisma.message.deleteMany({ where: { OR: [{ matchId: { not: null } }, { communityId: { not: null } }], senderId: coupleId } }),
+      prisma.communityMember.deleteMany({ where: { coupleId } }),
+      prisma.communityAdmin.deleteMany({ where: { coupleId } }),
+      prisma.onboardingAnswer.deleteMany({ where: { coupleId } }),
+      prisma.report.deleteMany({ where: { OR: [{ reporterId: coupleId }, { targetId: coupleId }] } }),
+      prisma.couple.delete({ where: { coupleId } }),
+      prisma.user.deleteMany({ where: { id: { in: userIds } } }),
+    ]);
   }
 
   async getCommunities() {
@@ -316,7 +381,7 @@ export class AdminService {
           type: 'admin',
           title,
           message,
-        });
+          });
       }
     }
 
