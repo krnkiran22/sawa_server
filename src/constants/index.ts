@@ -8,6 +8,7 @@ export const OTP_LENGTH = 6;
 export const OTP_EXPIRES_IN_MINUTES = 10;
 export const OTP_MAX_ATTEMPTS = 5;
 
+
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 export const BCRYPT_ROUNDS = 12;
 
