@@ -50,9 +50,16 @@ export const generateCoupleBio = async (
       response_format: { type: 'json_object' },
     });
 
-    const content = response.choices[0]?.message?.content || '{}';
-    const parsed = JSON.parse(content);
+    let content = response.choices[0]?.message?.content || '{}';
     
+    // Cleanup markdown-wrapped JSON if present
+    if (content.includes('```')) {
+      content = content.replace(/```json|```/g, '').trim();
+    }
+
+    const parsed = JSON.parse(content);
+    logger.info(`[GroqAI] Bio generation successful for couple.`);
+
     return {
       bio: parsed.bio || '',
       matchCriteria: parsed.matchCriteria ? [parsed.matchCriteria] : [],
