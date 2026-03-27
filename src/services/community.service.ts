@@ -235,7 +235,13 @@ export class CommunityService {
     }
 
     if (remainingMembers.length === 0) {
-      await prisma.community.delete({ where: { id: communityId } });
+      // Manual cascade delete
+      await prisma.$transaction([
+        prisma.message.deleteMany({ where: { communityId } }),
+        prisma.communityAdmin.deleteMany({ where: { communityId } }),
+        prisma.communityJoinRequest.deleteMany({ where: { communityId } }),
+        prisma.community.delete({ where: { id: communityId } })
+      ]);
       return { status: 'deleted' };
     }
 
@@ -352,11 +358,19 @@ export class CommunityService {
     if (!me) throw new AppError('Profile not found', 404);
 
     const isAdmin = await prisma.communityAdmin.findUnique({
-        where: { communityId_coupleId: { communityId, coupleId: me.coupleId } }
+      where: { communityId_coupleId: { communityId, coupleId: me.coupleId } }
     });
     if (!isAdmin) throw new AppError('Admin only', 403);
 
-    await prisma.community.delete({ where: { id: communityId } });
+    // Manual cascade delete because relations aren't set to CASCADE in prisma
+    await prisma.$transaction([
+      prisma.message.deleteMany({ where: { communityId } }),
+      prisma.communityMember.deleteMany({ where: { communityId } }),
+      prisma.communityAdmin.deleteMany({ where: { communityId } }),
+      prisma.communityJoinRequest.deleteMany({ where: { communityId } }),
+      prisma.community.delete({ where: { id: communityId } })
+    ]);
+
     return { success: true };
   }
 
