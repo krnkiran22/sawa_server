@@ -33,8 +33,8 @@ export const generateCoupleBio = async (
           Your goal is to write a warm, engaging profile that feels authentic and human.
           
           You must return a JSON object with exactly two fields:
-          1. "bio": A warm, sophisticated 3-line paragraph about who the couple is. Use "We". Make it sound premium and human-like.
-          2. "matchCriteria": A single, elegant 3-line paragraph describing the kind of couples they are looking to connect with and the vibes they prefer.
+          1. "bio": A warm, sophisticated 2-line paragraph about who the couple is. Use "We". Make it sound premium and human-like.
+          2. "matchCriteria": A single, elegant 2-line paragraph describing the kind of couples they are looking to connect with and the vibes they prefer.
 
           Examples of SOPHISTICATED styles:
           - "Navigating our corporate careers in the city, we value intentional social circles and structured weekend plans that allow for deep conversation over an excellent bottle of wine. We are looking for couples who appreciate the balance between professional growth and meaningful personal connections."

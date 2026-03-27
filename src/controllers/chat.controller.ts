@@ -17,11 +17,11 @@ export const getPrivateMessages = async (req: Request, res: Response): Promise<v
       sender: { select: { coupleId: true } },
       senderUser: { select: { role: true } },
     },
-    orderBy: { createdAt: 'asc' },
+    orderBy: { createdAt: 'desc' },
     take: 100,
   });
 
-  const finalMessages = messages.map((m: any) => {
+  const finalMessages = messages.reverse().map((m: any) => {
     return {
       _id: m.id,
       content: m.content,
@@ -77,17 +77,16 @@ export const getGroupMessages = async (req: Request, res: Response): Promise<voi
     include: {
       sender: { select: { coupleId: true, profileName: true } },
     },
-    orderBy: { createdAt: 'asc' },
+    orderBy: { createdAt: 'desc' },
     take: 100,
   });
 
-  const finalMessages = messages.map((m: any) => {
+  const finalMessages = messages.reverse().map((m: any) => {
     return {
       _id: m.id,
       content: m.content,
       contentType: m.contentType,
       senderCoupleId: m.sender?.coupleId,
-      senderName: m.sender?.profileName || 'Unknown Couple', 
       senderIndividualName: m.senderName, 
       accent: getCoupleCommunityColor(m.sender?.coupleId || ''),
       timestamp: m.createdAt,
