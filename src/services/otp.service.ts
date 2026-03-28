@@ -21,6 +21,20 @@ const twilioClient = (USE_TWILIO && TWILIO_SID && TWILIO_AUTH)
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Ensures phone is in E.164 format.
+ * - Already has +: use as-is
+ * - 12 digits starting with 91: prepend +
+ * - 10 digits (Indian mobile): prepend +91
+ */
+function formatPhoneE164(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  if (phone.startsWith('+')) return phone;
+  if (digits.length === 12 && digits.startsWith('91')) return `+${digits}`;
+  if (digits.length === 10) return `+91${digits}`;
+  return `+${digits}`; // fallback
+}
+
 export class OtpService {
   /**
    * Generate an OTP for a phone number under a shared coupleId.
@@ -53,7 +67,7 @@ export class OtpService {
         await twilioClient.messages.create({
           body,
           from: TWILIO_PHONE,
-          to: phone.startsWith('+') ? phone : `+${phone}`
+          to: formatPhoneE164(phone)
         });
         logger.info(`[OtpService] Twilio SMS sent to ${phone}`);
       } catch (err) {
@@ -134,7 +148,7 @@ export class OtpService {
          await twilioClient.messages.create({
             body: message,
             from: TWILIO_PHONE,
-            to: phone.startsWith('+') ? phone : `+${phone}`
+            to: formatPhoneE164(phone)
          });
          logger.info(`[OtpService] Twilio Invitation sent to ${phone}`);
          return true;
