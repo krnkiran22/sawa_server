@@ -64,7 +64,6 @@ model Couple {
   sentNotifications     Notification[]         @relation("Notification_sender")
   answers               OnboardingAnswer[]
   reports               Report[]               @relation("Report_reporter")
-  reportedBy            Report[]               @relation("Report_target")
   users                 User[]                 @relation("CouplePartners")
 
   @@index([coupleId])
@@ -235,7 +234,6 @@ model Report {
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt
   reporter   Couple       @relation("Report_reporter", fields: [reporterId], references: [coupleId])
-  target     Couple       @relation("Report_target", fields: [targetId], references: [coupleId])
 
   @@map("reports")
 }

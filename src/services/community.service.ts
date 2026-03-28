@@ -18,6 +18,10 @@ export class CommunityService {
        }
     }
 
+    if (me.blocked && me.blocked.length > 0) {
+       where.id = { notIn: me.blocked };
+    }
+
     const comms = await prisma.community.findMany({
       where,
       select: {
