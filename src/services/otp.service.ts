@@ -2,6 +2,7 @@ import twilio from 'twilio';
 import { prisma } from '../lib/prisma';
 import { OTP_EXPIRES_IN_MINUTES } from '../constants/index';
 import { logger } from '../utils/logger';
+import { userRepository } from '../repositories/user.repository';
 
 // ─── CONFIGURATION ──────────────────────────────────────────────────────────
 
@@ -96,7 +97,7 @@ export class OtpService {
             return { valid: true, coupleId: token.coupleId };
         }
 
-        const user = await prisma.user.findUnique({ where: { phone } });
+        const user = await userRepository.findByPhone(phone);
         if (user && user.coupleId) {
             return { valid: true, coupleId: user.coupleId };
         }

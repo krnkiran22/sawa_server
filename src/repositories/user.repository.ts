@@ -19,9 +19,15 @@ function normalizePhone(phone: string): string {
 export class UserRepository {
   async findByPhone(phone: string): Promise<User | null> {
     const normalized = normalizePhone(phone);
-    // Try exact normalized match first, then fallback to +91 prefixed variant
-    const user = await prisma.user.findUnique({ where: { phone: normalized } });
+    // 1. Try exact normalized match (bare 10 digits)
+    let user = await prisma.user.findUnique({ where: { phone: normalized } });
     if (user) return user;
+
+    // 2. Try with '91' prefix (common legacy format in the current DB)
+    user = await prisma.user.findUnique({ where: { phone: `91${normalized}` } });
+    if (user) return user;
+
+    // 3. Try with '+91' prefix (E.164 standard)
     return prisma.user.findUnique({ where: { phone: `+91${normalized}` } });
   }
 

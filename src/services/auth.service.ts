@@ -81,8 +81,8 @@ export class AuthService {
     if (coupleId.startsWith('bypass-')) {
         if (partnerResult.coupleId?.startsWith('bypass-')) {
             const [uY, uP] = await Promise.all([
-                  prisma.user.findUnique({ where: { phone: yourPhone } }),
-                  prisma.user.findUnique({ where: { phone: partnerPhone } })
+                   userRepository.findByPhone(yourPhone),
+                   userRepository.findByPhone(partnerPhone)
             ]);
             coupleId = uY?.coupleId || uP?.coupleId || crypto.randomUUID();
         } else {
@@ -91,8 +91,8 @@ export class AuthService {
     }
 
     // 1. Ensure the parent Couple exists first (sequentially to avoid race conditions)
-    const existingYours = await prisma.user.findUnique({ where: { phone: yourPhone } });
-    const existingPartner = await prisma.user.findUnique({ where: { phone: partnerPhone } });
+    const existingYours = await userRepository.findByPhone(yourPhone);
+    const existingPartner = await userRepository.findByPhone(partnerPhone);
     
     const defaultName = (existingYours?.name || existingPartner?.name) 
         ? `${existingYours?.name || 'User'} & ${existingPartner?.name || 'Partner'}`
