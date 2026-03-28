@@ -36,10 +36,27 @@ export class CommunityService {
       }
     });
 
+    const invitedNotifications = await prisma.notification.findMany({
+      where: {
+        recipientId: me.coupleId,
+        type: 'community',
+      },
+      select: {
+        data: true,
+      },
+    });
+
+    const invitedCommunityIds = new Set(
+      invitedNotifications
+        .map((notification: any) => String(notification?.data?.communityId || '').trim())
+        .filter(Boolean),
+    );
+
     return comms.map((c: any) => {
       const isMember = c.members.length > 0;
       const isAdmin = c.admins.length > 0;
       const isRequested = c.joinRequests.length > 0;
+      const isInvited = invitedCommunityIds.has(c.id);
       const membersCount = c._count.members;
       
       return {
@@ -53,6 +70,7 @@ export class CommunityService {
         isMember,
         isAdmin,
         isRequested,
+        isInvited,
         members: Array.from({ length: Math.min(membersCount, 5) }).map((_, i) => ({
           _id: `member-${i}`,
           id: `member-${i}`,
@@ -146,7 +164,14 @@ export class CommunityService {
                 type: 'community',
                 title: 'Community Invitation',
                 message: `${me.profileName} invited you to join ${community.name}`,
-                data: { communityId: community.id, name: community.name }
+                data: {
+                  communityId: community.id,
+                  name: community.name,
+                  communityName: community.name,
+                  isInvited: true,
+                  invited: true,
+                  status: 'invited',
+                }
               }
             });
 
@@ -411,9 +436,37 @@ export class CommunityService {
     const members = await prisma.communityMember.findMany({ where: { communityId } });
     const memberIds = members.map(m => m.coupleId);
 
+    const matchedCoupleIds = matches
+      .map((match: any) => (match.couple1Id === me.coupleId ? match.couple2Id : match.couple1Id))
+      .filter(Boolean);
+
+    const invitationNotifications =
+      matchedCoupleIds.length > 0
+        ? await prisma.notification.findMany({
+            where: {
+              recipientId: { in: matchedCoupleIds },
+              type: 'community',
+            },
+            select: {
+              recipientId: true,
+              data: true,
+            },
+          })
+        : [];
+
+    const invitedCoupleIds = new Set(
+      invitationNotifications
+        .filter((notification: any) => notification?.data?.communityId === communityId)
+        .map((notification: any) => notification.recipientId),
+    );
+
     return matches.map((m: any) => {
       const other = m.couple1Id === me.coupleId ? m.couple2 : m.couple1;
-      const status = memberIds.includes(other.coupleId) ? 'member' : 'available';
+      const status = memberIds.includes(other.coupleId)
+        ? 'member'
+        : invitedCoupleIds.has(other.coupleId)
+          ? 'invited'
+          : 'available';
 
       return {
         id: other.id,
@@ -441,6 +494,38 @@ export class CommunityService {
         });
         if (!targetCouple) continue;
 
+        const isAlreadyMember = await prisma.communityMember.findUnique({
+          where: {
+            communityId_coupleId: {
+              communityId,
+              coupleId: targetCouple.coupleId,
+            },
+          },
+        });
+
+        if (isAlreadyMember) {
+          continue;
+        }
+
+        const existingInvite = await prisma.notification.findFirst({
+          where: {
+            recipientId: targetCouple.coupleId,
+            type: 'community',
+            data: { path: ['communityId'], equals: community.id } as any,
+          },
+        });
+
+        if (existingInvite) {
+          emitRealtimeNotification(targetCouple.coupleId, {
+            notificationId: existingInvite.id,
+            type: existingInvite.type,
+            title: existingInvite.title,
+            message: existingInvite.message,
+            data: existingInvite.data,
+          });
+          continue;
+        }
+
         const notification = await prisma.notification.create({
           data: {
             recipientId: targetCouple.coupleId,
@@ -448,7 +533,14 @@ export class CommunityService {
             type: 'community',
             title: 'Community Invitation',
             message: `${me.profileName} invited you to join ${community.name}`,
-            data: { communityId: community.id, name: community.name }
+            data: {
+              communityId: community.id,
+              name: community.name,
+              communityName: community.name,
+              isInvited: true,
+              invited: true,
+              status: 'invited',
+            }
           }
         });
 
