@@ -72,7 +72,10 @@ export class CommunityService {
     if (!me) throw new AppError('Profile not found', 404);
 
     const memberships = await prisma.communityMember.findMany({
-      where: { coupleId: me.coupleId },
+      where: { 
+        coupleId: me.coupleId,
+        communityId: { notIn: me.blocked || [] }
+      },
       select: {
         community: {
           select: {

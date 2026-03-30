@@ -336,6 +336,36 @@ export class MatchService {
 
     return { success: true };
   }
+
+  async blockCouple(requestingCoupleId: string, targetCoupleIdStr: string) {
+    const me = await prisma.couple.findUnique({ where: { coupleId: requestingCoupleId }, select: { coupleId: true } });
+    if (!me) throw new AppError('Profile not found', 404);
+
+    const target = await prisma.couple.findFirst({
+      where: { OR: [{ id: targetCoupleIdStr }, { coupleId: targetCoupleIdStr }] },
+      select: { coupleId: true }
+    });
+    if (!target) throw new AppError('Target profile not found', 404);
+
+    // 1. Add to blocked list
+    await prisma.couple.update({
+      where: { coupleId: me.coupleId },
+      data: {
+        blocked: {
+          push: target.coupleId
+        }
+      }
+    });
+
+    // 2. Destroy matches permanently
+    await prisma.match.deleteMany({
+      where: {
+        OR: [{ couple1Id: me.coupleId, couple2Id: target.coupleId }, { couple2Id: me.coupleId, couple1Id: target.coupleId }]
+      }
+    });
+
+    return { success: true };
+  }
 }
 
 export const matchService = new MatchService();

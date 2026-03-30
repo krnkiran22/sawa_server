@@ -49,6 +49,9 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
           contentType: data.contentType ?? 'text',
           audioDuration: data.audioDuration,
           timestamp,
+          repliedToId: (data as any).repliedToId,
+          repliedToText: (data as any).repliedToText,
+          repliedToName: (data as any).repliedToName,
         };
 
         // Broadcast to room immediately
@@ -89,6 +92,9 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
                 content: data.content,
                 contentType: (data.contentType || 'text') as any,
                 audioDuration: data.audioDuration,
+                repliedToId: (data as any).repliedToId,
+                repliedToText: (data as any).repliedToText,
+                repliedToName: (data as any).repliedToName,
                 createdAt: new Date(timestamp),
               }
             });

@@ -12,6 +12,7 @@ import {
   getIncomingRequests,
   acceptMatch,
   rejectMatch,
+  blockCouple,
 } from '../controllers/match.controller';
 
 const router = Router();
@@ -41,6 +42,9 @@ router.post('/accept', validateMatchAction, asyncHandler(acceptMatch));
 
 // POST /api/v1/matches/reject -> reject a pending request
 router.post('/reject', validateMatchAction, asyncHandler(rejectMatch));
+
+// POST /api/v1/matches/block -> block a couple
+router.post('/block', validateMatchAction, asyncHandler(blockCouple));
 
 // GET /api/v1/matches/insights/:coupleId
 router.get('/insights/:coupleId', asyncHandler(getInsights));

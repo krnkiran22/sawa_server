@@ -34,6 +34,9 @@ export const getPrivateMessages = async (req: Request, res: Response): Promise<v
       timestamp: m.createdAt,
       readBy: m.readBy || [],
       audioDuration: m.audioDuration,
+      repliedToId: m.repliedToId,
+      repliedToText: m.repliedToText,
+      repliedToName: m.repliedToName,
       senderImage: undefined 
     };
   });
@@ -93,6 +96,9 @@ export const getGroupMessages = async (req: Request, res: Response): Promise<voi
       timestamp: m.createdAt,
       readBy: m.readBy || [],
       audioDuration: m.audioDuration,
+      repliedToId: m.repliedToId,
+      repliedToText: m.repliedToText,
+      repliedToName: m.repliedToName,
     };
   });
 
