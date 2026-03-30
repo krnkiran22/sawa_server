@@ -22,6 +22,9 @@ const envSchema = z.object({
   RENDER_EXTERNAL_URL: z.string().optional(),
   APP_URL: z.string().optional(), // Generic URL for self-wakeup (Railway/Render)
   GROQ_API_KEY: z.string().min(1, 'GROQ_API_KEY is required'),
+  TWILIO_ACCOUNT_SID: z.string().optional(),
+  TWILIO_AUTH_TOKEN: z.string().optional(),
+  TWILIO_PHONE_NUMBER: z.string().optional(),
 });
 
 const _parsed = envSchema.safeParse(process.env);
