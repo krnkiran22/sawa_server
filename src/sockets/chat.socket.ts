@@ -16,14 +16,18 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
 
   socket.on(
     SOCKET_EVENTS.CHAT_MESSAGE,
-    async (data: { 
-      chatId: string; 
-      content: string; 
-      contentType: string; 
-      chatType?: 'private' | 'group'; 
-      audioDuration?: number; 
+    async (data: {
+      chatId: string;
+      content: string;
+      contentType: string;
+      chatType?: 'private' | 'group';
+      audioDuration?: number;
+      senderName?: string;
       senderIndividualName?: string;
       clientMessageId?: string;
+      repliedToId?: string;
+      repliedToText?: string;
+      repliedToName?: string;
     }) => {
       if (!socket.userId || !socket.coupleId) return;
 
@@ -33,6 +37,9 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
         const timestamp = new Date().toISOString();
         const clientMessageId = data.clientMessageId || `srv-${Date.now()}`;
 
+        const senderName = data.senderName || socket.userName || 'User';
+        const senderIndividualName = data.senderIndividualName || socket.userName || 'User';
+
         // 1. IMMEDIATE BROADCAST (Ultra-low latency 🚀)
         const broadcastData = {
           _id: clientMessageId, // Real Database ID will be synced via fetchHistory later
@@ -41,17 +48,17 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
           chatType,
           senderCoupleId: socket.coupleId,
           senderUserId: socket.userId,
-          senderName: socket.userName || data.senderIndividualName || 'User',
-          senderIndividualName: socket.userName || data.senderIndividualName || 'User',
+          senderName,
+          senderIndividualName,
           senderRole: socket.userRole, // NEW: for role-based coloring
           accent: getCoupleCommunityColor(socket.coupleId),
           content: data.content,
           contentType: data.contentType ?? 'text',
           audioDuration: data.audioDuration,
           timestamp,
-          repliedToId: (data as any).repliedToId,
-          repliedToText: (data as any).repliedToText,
-          repliedToName: (data as any).repliedToName,
+          repliedToId: data.repliedToId,
+          repliedToText: data.repliedToText,
+          repliedToName: data.repliedToName,
         };
 
         // Broadcast to room immediately
@@ -88,13 +95,14 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
                 communityId: chatType === 'group' ? chatId : null,
                 senderId: socket.coupleId!,
                 senderUserId: socket.userId!,
-                senderName: socket.userName || data.senderIndividualName || 'Unknown',
+                senderName,
+                senderIndividualName,
                 content: data.content,
                 contentType: (data.contentType || 'text') as any,
                 audioDuration: data.audioDuration,
-                repliedToId: (data as any).repliedToId,
-                repliedToText: (data as any).repliedToText,
-                repliedToName: (data as any).repliedToName,
+                repliedToId: data.repliedToId,
+                repliedToText: data.repliedToText,
+                repliedToName: data.repliedToName,
                 createdAt: new Date(timestamp),
               }
             });

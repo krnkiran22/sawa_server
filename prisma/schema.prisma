@@ -162,9 +162,10 @@ model Message {
   matchId       String?
   communityId   String?
   senderId      String
-  senderUserId  String?
-  senderName    String
-  content       String
+  senderUserId         String?
+  senderName           String
+  senderIndividualName String?
+  content              String
   contentType   ContentType @default(text)
   audioDuration Int?
   readBy        String[]    @default([])
