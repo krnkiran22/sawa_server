@@ -99,6 +99,7 @@ model Community {
 
   @@index([city])
   @@map("communities")
+  reportsReceived Report[] @relation("Report_targetCommunity")
 }
 
 model CommunityMember {
