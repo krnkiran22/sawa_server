@@ -28,9 +28,6 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
       repliedToText?: string;
       repliedToName?: string;
       clientMessageId?: string;
-      repliedToId?: string;
-      repliedToText?: string;
-      repliedToName?: string;
     }) => {
       if (!socket.userId || !socket.coupleId) return;
 
