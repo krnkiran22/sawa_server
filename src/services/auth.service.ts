@@ -19,15 +19,21 @@ export class AuthService {
     const existingYours = await userRepository.findByPhone(yourPhone);
     const existingPartner = await userRepository.findByPhone(partnerPhone);
 
-    let coupleId: string;
-
-    if (existingYours && existingYours.coupleId) {
-      coupleId = existingYours.coupleId;
-    } else if (existingPartner && existingPartner.coupleId) {
-      coupleId = existingPartner.coupleId;
-    } else {
-      coupleId = crypto.randomUUID();
+    if (existingYours && existingYours.isPhoneVerified) {
+      throw new AppError('This number is already registered. Please Sign In instead.', 400, 'USER_EXISTS');
     }
+    if (existingPartner && existingPartner.isPhoneVerified) {
+      throw new AppError('Partner number is already registered to another account.', 400, 'PARTNER_EXISTS');
+    }
+
+    const coupleId = crypto.randomUUID();
+
+    // Ensure the Couple entity exists first to satisfy foreign key constraints for the User records
+    await prisma.couple.upsert({
+      where: { coupleId },
+      update: {},
+      create: { coupleId, profileName: 'Sawa Couple' }
+    });
 
     // Ensure Couple exists before User due to FK constraint
     await prisma.couple.upsert({
@@ -39,8 +45,10 @@ export class AuthService {
     await userRepository.upsertByPhone(yourPhone, coupleId, 'primary');
     await userRepository.upsertByPhone(partnerPhone, coupleId, 'partner');
 
+    const partnerCodeMsg = `Welcome to SAWA! Use {{code}} to verify your shared profile. Download it here: https://apps.apple.com/in/app/sawa-made-for-two/id514584879`;
+
     await otpService.generateAndStore(yourPhone, coupleId);
-    await otpService.generateAndStore(partnerPhone, coupleId);
+    await otpService.generateAndStore(partnerPhone, coupleId, partnerCodeMsg);
 
     logger.info(`[AuthService] OTPs issued for entity: ${coupleId}`);
     return { coupleId };
@@ -80,8 +88,8 @@ export class AuthService {
     if (coupleId.startsWith('bypass-')) {
         if (partnerResult.coupleId?.startsWith('bypass-')) {
             const [uY, uP] = await Promise.all([
-                  prisma.user.findUnique({ where: { phone: yourPhone } }),
-                  prisma.user.findUnique({ where: { phone: partnerPhone } })
+                   userRepository.findByPhone(yourPhone),
+                   userRepository.findByPhone(partnerPhone)
             ]);
             coupleId = uY?.coupleId || uP?.coupleId || crypto.randomUUID();
         } else {
@@ -90,8 +98,8 @@ export class AuthService {
     }
 
     // 1. Ensure the parent Couple exists first (sequentially to avoid race conditions)
-    const existingYours = await prisma.user.findUnique({ where: { phone: yourPhone } });
-    const existingPartner = await prisma.user.findUnique({ where: { phone: partnerPhone } });
+    const existingYours = await userRepository.findByPhone(yourPhone);
+    const existingPartner = await userRepository.findByPhone(partnerPhone);
     
     const defaultName = (existingYours?.name || existingPartner?.name) 
         ? `${existingYours?.name || 'User'} & ${existingPartner?.name || 'Partner'}`

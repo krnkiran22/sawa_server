@@ -24,6 +24,9 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
       audioDuration?: number;
       senderName?: string;
       senderIndividualName?: string;
+      repliedToId?: string;
+      repliedToText?: string;
+      repliedToName?: string;
       clientMessageId?: string;
       repliedToId?: string;
       repliedToText?: string;

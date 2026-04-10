@@ -2,9 +2,33 @@ import { prisma } from '../lib/prisma';
 import { AppError } from '../utils/AppError';
 import type { User } from '@prisma/client';
 
+/**
+ * Normalises any phone format to a bare 10-digit string for consistent DB storage.
+ * Examples:
+ *   +919876543210 → 9876543210
+ *   919876543210  → 9876543210
+ *   9876543210    → 9876543210
+ */
+function normalizePhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 12 && digits.startsWith('91')) return digits.slice(2);
+  if (digits.length === 11 && digits.startsWith('0')) return digits.slice(1);
+  return digits;
+}
+
 export class UserRepository {
   async findByPhone(phone: string): Promise<User | null> {
-    return prisma.user.findUnique({ where: { phone } });
+    const normalized = normalizePhone(phone);
+    // 1. Try exact normalized match (bare 10 digits)
+    let user = await prisma.user.findUnique({ where: { phone: normalized } });
+    if (user) return user;
+
+    // 2. Try with '91' prefix (common legacy format in the current DB)
+    user = await prisma.user.findUnique({ where: { phone: `91${normalized}` } });
+    if (user) return user;
+
+    // 3. Try with '+91' prefix (E.164 standard)
+    return prisma.user.findUnique({ where: { phone: `+91${normalized}` } });
   }
 
   async findById(id: string): Promise<User | null> {
@@ -20,16 +44,18 @@ export class UserRepository {
     coupleId: string,
     role: 'primary' | 'partner',
   ): Promise<User> {
+    const normalized = normalizePhone(phone);
     return prisma.user.upsert({
-      where: { phone },
+      where: { phone: normalized },
       update: {},
-      create: { phone, coupleId, role, isPhoneVerified: false },
+      create: { phone: normalized, coupleId, role, isPhoneVerified: false },
     });
   }
 
   async markVerified(phone: string): Promise<User> {
+    const normalized = normalizePhone(phone);
     const user = await prisma.user.update({
-      where: { phone },
+      where: { phone: normalized },
       data: { isPhoneVerified: true },
     });
     if (!user) throw new AppError(`User not found for phone: ${phone}`, 404, 'USER_NOT_FOUND');

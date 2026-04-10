@@ -129,11 +129,11 @@ export const getPrivateMessages = async (req: Request, res: Response): Promise<v
       sender: { select: { coupleId: true } },
       senderUser: { select: { role: true } },
     },
-    orderBy: { createdAt: 'asc' },
+    orderBy: { createdAt: 'desc' },
     take: 100,
   });
 
-  const finalMessages = messages.map((m: any) => {
+  const finalMessages = messages.reverse().map((m: any) => {
     return {
       _id: m.id,
       content: m.content,
@@ -174,6 +174,9 @@ export const sendPrivateMessage = async (req: Request, res: Response): Promise<v
       content,
       contentType: (contentType || 'text') as any,
       audioDuration: req.body.audioDuration,
+      repliedToId: req.body.repliedToId,
+      repliedToText: req.body.repliedToText,
+      repliedToName: req.body.repliedToName,
     }
   });
 
@@ -192,11 +195,11 @@ export const getGroupMessages = async (req: Request, res: Response): Promise<voi
     include: {
       sender: { select: { coupleId: true, profileName: true } },
     },
-    orderBy: { createdAt: 'asc' },
+    orderBy: { createdAt: 'desc' },
     take: 100,
   });
 
-  const finalMessages = messages.map((m: any) => {
+  const finalMessages = messages.reverse().map((m: any) => {
     return {
       _id: m.id,
       content: m.content,
@@ -235,6 +238,9 @@ export const sendGroupMessage = async (req: Request, res: Response): Promise<voi
       content,
       contentType: (contentType || 'text') as any,
       audioDuration: req.body.audioDuration,
+      repliedToId: req.body.repliedToId,
+      repliedToText: req.body.repliedToText,
+      repliedToName: req.body.repliedToName,
     }
   });
 

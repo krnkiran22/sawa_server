@@ -1,45 +1,63 @@
+import twilio from 'twilio';
 import { prisma } from '../lib/prisma';
 import { OTP_EXPIRES_IN_MINUTES } from '../constants/index';
 import { logger } from '../utils/logger';
-import { env } from '../config/env';
-import twilio from 'twilio';
+import { userRepository } from '../repositories/user.repository';
 
-const twilioClient = env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN 
-  ? twilio(env.TWILIO_ACCOUNT_SID, env.TWILIO_AUTH_TOKEN) 
+// ─── CONFIGURATION ──────────────────────────────────────────────────────────
+
+const USE_TWILIO = false;
+
+const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID;
+const TWILIO_AUTH = process.env.TWILIO_AUTH_TOKEN;
+const TWILIO_PHONE = process.env.TWILIO_PHONE_NUMBER;
+
+const twilioClient = (USE_TWILIO && TWILIO_SID && TWILIO_AUTH)
+  ? twilio(TWILIO_SID, TWILIO_AUTH)
   : null;
+
+function formatPhoneE164(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  if (phone.startsWith('+')) return phone;
+  if (digits.length === 12 && digits.startsWith('91')) return `+${digits}`;
+  if (digits.length === 10) return `+91${digits}`;
+  return `+${digits}`;
+}
 
 export class OtpService {
   /**
    * Generate an OTP for a phone number under a shared coupleId.
+   * Optional custom message can be provided for the SMS.
    */
-  async generateAndStore(phone: string, coupleId: string): Promise<string> {
+  async generateAndStore(phone: string, coupleId: string, customMessage?: string): Promise<string> {
     // Remove previous OTP for this phone
     await prisma.otpToken.deleteMany({ where: { phone } });
 
-    // Generate random 4-digit code
-    const code = Math.floor(1000 + Math.random() * 9000).toString();
+    let code: string;
+    if (USE_TWILIO) {
+      code = Math.floor(1000 + Math.random() * 9000).toString();
+    } else {
+      code = '1234';
+    }
     const expiresAt = new Date(Date.now() + OTP_EXPIRES_IN_MINUTES * 60 * 1000);
 
     await prisma.otpToken.create({
       data: { phone, coupleId, otpCode: code, expiresAt }
     });
 
-    const formattedPhone = phone.startsWith('+') ? phone : `+${phone}`;
-
-    // Send via Twilio if configured
-    if (twilioClient && env.TWILIO_PHONE_NUMBER) {
+    if (USE_TWILIO && twilioClient && TWILIO_PHONE) {
       try {
-        await twilioClient.messages.create({
-          body: `Your SAWA verification code is: ${code}`,
-          from: env.TWILIO_PHONE_NUMBER,
-          to: formattedPhone
-        });
-        logger.info(`[OtpService] Real SMS sent to ${formattedPhone}`);
+        const body = customMessage
+          ? customMessage.replace('{{code}}', code)
+          : `[SAWA] Your verification code is: ${code}. Valid for ${OTP_EXPIRES_IN_MINUTES} minutes.`;
+        await twilioClient.messages.create({ body, from: TWILIO_PHONE, to: formatPhoneE164(phone) });
+        logger.info(`[OtpService] Twilio SMS sent to ${phone}`);
       } catch (err) {
-        logger.error(`[OtpService] Twilio failed for ${formattedPhone}:`, err);
+        logger.error(`[OtpService] Twilio failed for ${phone}:`, err);
       }
     } else {
-      logger.info(`[OtpService] Twilio not configured. Stubbed OTP '${code}' created for ${formattedPhone}`);
+      logger.info(`[OtpService] Dummy OTP '${code}' created for ${phone} (entity: ${coupleId})`);
+
     }
 
     return code;
@@ -51,8 +69,8 @@ export class OtpService {
   async verify(phone: string, enteredCode: string): Promise<{ valid: boolean; coupleId: string | null }> {
     logger.debug(`[OtpService] Verifying OTP for ${phone}. Code entered: ${enteredCode}`);
     
-    // MASTER BYPASS: '1234' is the magic key
-    if (enteredCode === '1234') {
+    // If NOT in twilio mode, master bypass '1234' is allowed
+    if (!USE_TWILIO && enteredCode === '1234') {
         const token = await prisma.otpToken.findFirst({
             where: { phone },
             orderBy: { createdAt: 'desc' }
@@ -61,7 +79,7 @@ export class OtpService {
             return { valid: true, coupleId: token.coupleId };
         }
 
-        const user = await prisma.user.findUnique({ where: { phone } });
+        const user = await userRepository.findByPhone(phone);
         if (user && user.coupleId) {
             return { valid: true, coupleId: user.coupleId };
         }
@@ -105,27 +123,22 @@ export class OtpService {
   }
 
   /**
-   * Send SMS invitation (STUBBED - Twilio Disconnected)
+   * Send SMS invitation
    */
   async sendInvitation(phone: string, message: string): Promise<boolean> {
-    if (twilioClient && env.TWILIO_PHONE_NUMBER) {
+    if (USE_TWILIO && twilioClient && TWILIO_PHONE) {
       try {
-        const formattedPhone = phone.startsWith('+') ? phone : `+${phone}`;
-        await twilioClient.messages.create({
-          body: message,
-          from: env.TWILIO_PHONE_NUMBER,
-          to: formattedPhone
-        });
-        logger.info(`[OtpService] Invitation SMS sent to ${formattedPhone}`);
+        await twilioClient.messages.create({ body: message, from: TWILIO_PHONE, to: formatPhoneE164(phone) });
+        logger.info(`[OtpService] Twilio Invitation sent to ${phone}`);
         return true;
       } catch (err) {
-        const formattedPhone = phone.startsWith('+') ? phone : `+${phone}`;
-        logger.error(`[OtpService] Twilio invitation failed for ${formattedPhone}:`, err);
+        logger.error(`[OtpService] Twilio Invitation failed for ${phone}:`, err);
         return false;
       }
+    } else {
+      logger.info(`[OtpService] Twilio is DISABLED. Invitation log only for ${phone}: "${message}"`);
+      return true;
     }
-    logger.info(`[OtpService] Twilio is DISABLED. Invitation log only for ${phone}: "${message}"`);
-    return true; 
   }
 }
 

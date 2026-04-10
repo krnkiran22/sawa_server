@@ -1,6 +1,7 @@
 import { prisma } from '../lib/prisma';
 import { AppError } from '../utils/AppError';
 import { logger } from '../utils/logger';
+import { emitRealtimeNotification } from '../utils/realtime';
 
 export class CommunityService {
 
@@ -39,10 +40,27 @@ export class CommunityService {
       }
     });
 
+    const invitedNotifications = await prisma.notification.findMany({
+      where: {
+        recipientId: me.coupleId,
+        type: 'community',
+      },
+      select: {
+        data: true,
+      },
+    });
+
+    const invitedCommunityIds = new Set(
+      invitedNotifications
+        .map((notification: any) => String(notification?.data?.communityId || '').trim())
+        .filter(Boolean),
+    );
+
     return comms.map((c: any) => {
       const isMember = c.members.length > 0;
       const isAdmin = c.admins.length > 0;
       const isRequested = c.joinRequests.length > 0;
+      const isInvited = invitedCommunityIds.has(c.id);
       const membersCount = c._count.members;
       
       return {
@@ -56,6 +74,7 @@ export class CommunityService {
         isMember,
         isAdmin,
         isRequested,
+        isInvited,
         members: Array.from({ length: Math.min(membersCount, 5) }).map((_, i) => ({
           _id: `member-${i}`,
           id: `member-${i}`,
@@ -145,15 +164,30 @@ export class CommunityService {
           });
 
           if (match) {
-            await prisma.notification.create({
+            const notification = await prisma.notification.create({
               data: {
                 recipientId: targetCoupleId,
                 senderId: me.coupleId,
                 type: 'community',
                 title: 'Community Invitation',
                 message: `${me.profileName} invited you to join ${community.name}`,
-                data: { communityId: community.id, name: community.name }
+                data: {
+                  communityId: community.id,
+                  name: community.name,
+                  communityName: community.name,
+                  isInvited: true,
+                  invited: true,
+                  status: 'invited',
+                }
               }
+            });
+
+            emitRealtimeNotification(targetCoupleId, {
+              notificationId: notification.id,
+              type: notification.type,
+              title: notification.title,
+              message: notification.message,
+              data: notification.data,
             });
           }
         } catch (err) {
@@ -203,7 +237,7 @@ export class CommunityService {
 
     const admins = await prisma.communityAdmin.findMany({ where: { communityId } });
     for (const admin of admins) {
-      await prisma.notification.create({
+      const notification = await prisma.notification.create({
         data: {
           recipientId: admin.coupleId,
           senderId: me.coupleId,
@@ -212,6 +246,14 @@ export class CommunityService {
           message: `${me.profileName} wants to join.`,
           data: { communityId, requestId: me.coupleId }
         }
+      });
+
+      emitRealtimeNotification(admin.coupleId, {
+        notificationId: notification.id,
+        type: notification.type,
+        title: notification.title,
+        message: notification.message,
+        data: notification.data,
       });
     }
 
@@ -242,7 +284,13 @@ export class CommunityService {
     }
 
     if (remainingMembers.length === 0) {
-      await prisma.community.delete({ where: { id: communityId } });
+      // Manual cascade delete
+      await prisma.$transaction([
+        prisma.message.deleteMany({ where: { communityId } }),
+        prisma.communityAdmin.deleteMany({ where: { communityId } }),
+        prisma.communityJoinRequest.deleteMany({ where: { communityId } }),
+        prisma.community.delete({ where: { id: communityId } })
+      ]);
       return { status: 'deleted' };
     }
 
@@ -276,7 +324,7 @@ export class CommunityService {
            create: { communityId, coupleId: targetId }
        });
 
-       await prisma.notification.create({
+       const notification = await prisma.notification.create({
           data: {
              recipientId: targetId,
              senderId: me.coupleId,
@@ -285,6 +333,14 @@ export class CommunityService {
              message: `You joined the community!`,
              data: { communityId }
           }
+       });
+
+       emitRealtimeNotification(targetId, {
+         notificationId: notification.id,
+         type: notification.type,
+         title: notification.title,
+         message: notification.message,
+         data: notification.data,
        });
        return { message: 'Accepted' };
     }
@@ -309,6 +365,34 @@ export class CommunityService {
     const isMember = c.members.some((m: any) => m.coupleId === me.coupleId);
     const isAdmin = c.admins.some((a: any) => a.coupleId === me.coupleId);
     const isRequested = c.joinRequests.some((r: any) => r.coupleId === me.coupleId);
+
+    const memberCoupleIds = c.members
+      .map((m: any) => m.coupleId)
+      .filter((coupleId: string) => coupleId && coupleId !== me.coupleId);
+
+    const acceptedMatches = memberCoupleIds.length
+      ? await prisma.match.findMany({
+          where: {
+            status: 'accepted',
+            OR: [
+              { couple1Id: me.coupleId, couple2Id: { in: memberCoupleIds } },
+              { couple2Id: me.coupleId, couple1Id: { in: memberCoupleIds } }
+            ]
+          },
+          select: {
+            id: true,
+            couple1Id: true,
+            couple2Id: true
+          }
+        })
+      : [];
+
+    const acceptedMatchByCoupleId = new Map(
+      acceptedMatches.map((match: any) => [
+        match.couple1Id === me.coupleId ? match.couple2Id : match.couple1Id,
+        match
+      ])
+    );
     
     const invitation = await prisma.notification.findFirst({
         where: { recipientId: me.coupleId, type: 'community', data: { path: ['communityId'], equals: communityId } as any }
@@ -335,14 +419,20 @@ export class CommunityService {
       isRequested,
       isInvited: !!invitation,
       hosts,
-      members: c.members.map((m: any) => ({
-        id: m.couple.id,
-        coupleId: m.couple.coupleId,
-        name: m.couple.profileName,
-        city: m.couple.locationCity || 'Unknown',
-        accent: '#DBCBA6',
-        image: m.couple.primaryPhoto
-      })),
+      members: c.members.map((m: any) => {
+        const matchedConnection = acceptedMatchByCoupleId.get(m.couple.coupleId);
+
+        return {
+          id: m.couple.id,
+          coupleId: m.couple.coupleId,
+          name: m.couple.profileName,
+          city: m.couple.locationCity || 'Unknown',
+          accent: '#DBCBA6',
+          image: m.couple.primaryPhoto,
+          isAlreadyMatched: !!matchedConnection,
+          matchId: matchedConnection?.id || null
+        };
+      }),
       joinRequests: isAdmin ? c.joinRequests.map((r: any) => ({
         id: r.couple.id,
         coupleId: r.couple.coupleId,
@@ -359,11 +449,19 @@ export class CommunityService {
     if (!me) throw new AppError('Profile not found', 404);
 
     const isAdmin = await prisma.communityAdmin.findUnique({
-        where: { communityId_coupleId: { communityId, coupleId: me.coupleId } }
+      where: { communityId_coupleId: { communityId, coupleId: me.coupleId } }
     });
     if (!isAdmin) throw new AppError('Admin only', 403);
 
-    await prisma.community.delete({ where: { id: communityId } });
+    // Manual cascade delete because relations aren't set to CASCADE in prisma
+    await prisma.$transaction([
+      prisma.message.deleteMany({ where: { communityId } }),
+      prisma.communityMember.deleteMany({ where: { communityId } }),
+      prisma.communityAdmin.deleteMany({ where: { communityId } }),
+      prisma.communityJoinRequest.deleteMany({ where: { communityId } }),
+      prisma.community.delete({ where: { id: communityId } })
+    ]);
+
     return { success: true };
   }
 
@@ -379,9 +477,37 @@ export class CommunityService {
     const members = await prisma.communityMember.findMany({ where: { communityId } });
     const memberIds = members.map(m => m.coupleId);
 
+    const matchedCoupleIds = matches
+      .map((match: any) => (match.couple1Id === me.coupleId ? match.couple2Id : match.couple1Id))
+      .filter(Boolean);
+
+    const invitationNotifications =
+      matchedCoupleIds.length > 0
+        ? await prisma.notification.findMany({
+            where: {
+              recipientId: { in: matchedCoupleIds },
+              type: 'community',
+            },
+            select: {
+              recipientId: true,
+              data: true,
+            },
+          })
+        : [];
+
+    const invitedCoupleIds = new Set(
+      invitationNotifications
+        .filter((notification: any) => notification?.data?.communityId === communityId)
+        .map((notification: any) => notification.recipientId),
+    );
+
     return matches.map((m: any) => {
       const other = m.couple1Id === me.coupleId ? m.couple2 : m.couple1;
-      const status = memberIds.includes(other.coupleId) ? 'member' : 'available';
+      const status = memberIds.includes(other.coupleId)
+        ? 'member'
+        : invitedCoupleIds.has(other.coupleId)
+          ? 'invited'
+          : 'available';
 
       return {
         id: other.id,
@@ -409,15 +535,62 @@ export class CommunityService {
         });
         if (!targetCouple) continue;
 
-        await prisma.notification.create({
+        const isAlreadyMember = await prisma.communityMember.findUnique({
+          where: {
+            communityId_coupleId: {
+              communityId,
+              coupleId: targetCouple.coupleId,
+            },
+          },
+        });
+
+        if (isAlreadyMember) {
+          continue;
+        }
+
+        const existingInvite = await prisma.notification.findFirst({
+          where: {
+            recipientId: targetCouple.coupleId,
+            type: 'community',
+            data: { path: ['communityId'], equals: community.id } as any,
+          },
+        });
+
+        if (existingInvite) {
+          emitRealtimeNotification(targetCouple.coupleId, {
+            notificationId: existingInvite.id,
+            type: existingInvite.type,
+            title: existingInvite.title,
+            message: existingInvite.message,
+            data: existingInvite.data,
+          });
+          continue;
+        }
+
+        const notification = await prisma.notification.create({
           data: {
             recipientId: targetCouple.coupleId,
             senderId: me.coupleId,
             type: 'community',
             title: 'Community Invitation',
             message: `${me.profileName} invited you to join ${community.name}`,
-            data: { communityId: community.id, name: community.name }
+            data: {
+              communityId: community.id,
+              name: community.name,
+              communityName: community.name,
+              isInvited: true,
+              invited: true,
+              status: 'invited',
+            }
           }
+        });
+
+        emitRealtimeNotification(targetCouple.coupleId, {
+          notificationId: notification.id,
+          type: notification.type,
+          title: notification.title,
+          message: notification.message,
+          data: notification.data,
         });
       } catch (err) {
         logger.error(`[CommunityService] Failed to invite couple ${rawId}: ${err}`);

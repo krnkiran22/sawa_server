@@ -168,6 +168,9 @@ model Message {
   content              String
   contentType   ContentType @default(text)
   audioDuration Int?
+  repliedToId   String?
+  repliedToText String?
+  repliedToName String?
   readBy        String[]    @default([])
   repliedToId   String?
   repliedToText String?
