@@ -172,9 +172,6 @@ model Message {
   repliedToText String?
   repliedToName String?
   readBy        String[]    @default([])
-  repliedToId   String?
-  repliedToText String?
-  repliedToName String?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   community     Community?  @relation(fields: [communityId], references: [id])
