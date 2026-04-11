@@ -68,8 +68,9 @@ export class MatchService {
       const q3Answer = c.answers?.[0];
       const tags: string[] = q3Answer
         ? (q3Answer.selectedOptionIds as string[])
-            .map((id: string) => Q3_TITLES[id])
-            .filter(Boolean)
+            // Resolve ID → title; if value is already a title (no key match) keep it as-is
+            .map((id: string) => Q3_TITLES[id] || id)
+            .filter((v: string) => Boolean(v) && v.trim().length > 0)
         : [];
 
       return {
