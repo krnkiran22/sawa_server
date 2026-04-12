@@ -165,4 +165,35 @@ export class AdminController {
       res.status(500).json({ success: false, message: err.message });
     }
   }
+
+  async flushDatabase(req: Request, res: Response) {
+    try {
+      const tables = [
+        'onboarding_answers',
+        'messages',
+        'notifications',
+        'matches',
+        'community_members',
+        'community_admins',
+        'community_join_requests',
+        'reports',
+        'otp_tokens',
+        'users',
+        'couples',
+        'communities',
+      ];
+
+      const cleared: string[] = [];
+      for (const table of tables) {
+        await prisma.$executeRawUnsafe(`TRUNCATE TABLE "${table}" RESTART IDENTITY CASCADE;`);
+        cleared.push(table);
+      }
+
+      logger.warn('ADMIN: Production database flushed', { tables: cleared });
+      res.status(200).json({ success: true, message: 'Database flushed successfully', cleared });
+    } catch (err: any) {
+      logger.error('ADMIN: Database flush failed', { error: err.message });
+      res.status(500).json({ success: false, message: err.message });
+    }
+  }
 }

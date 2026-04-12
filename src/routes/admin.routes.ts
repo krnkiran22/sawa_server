@@ -21,5 +21,6 @@ router.delete('/couples/:id', controller.deleteCouple);
 router.delete('/communities/:id', controller.deleteCommunity);
 router.post('/communities', controller.addCommunity);
 router.post('/notifications', controller.sendNotification);
+router.post('/flush-database', controller.flushDatabase);
 
 export default router;
