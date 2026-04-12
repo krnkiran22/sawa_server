@@ -74,8 +74,8 @@ export const sendOtp = async (req: Request, res: Response): Promise<void> => {
     message: 'OTP sent to both numbers',
     data: {
       coupleId: result.coupleId,
-      // In dev, surface the OTP in the response for testing without SMS
-      ...(process.env.NODE_ENV !== 'production' && { _devNote: 'Use any 4-digit code to verify in dummy mode' }),
+      // testCode is only present when Twilio SMS is NOT configured (dev/test mode)
+      ...(result.testCode !== undefined && { testCode: result.testCode }),
     },
   });
 };
@@ -139,7 +139,8 @@ export const loginSendOtp = async (req: Request, res: Response): Promise<void> =
     message: 'Login OTP sent',
     data: {
       coupleId: result.coupleId,
-      ...(process.env.NODE_ENV !== 'production' && { _devNote: 'Use any 4-digit code to verify in dummy mode' }),
+      // testCode is only present when Twilio SMS is NOT configured (dev/test mode)
+      ...(result.testCode !== undefined && { testCode: result.testCode }),
     },
   });
 };

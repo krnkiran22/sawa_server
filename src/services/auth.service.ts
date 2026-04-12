@@ -11,7 +11,7 @@ export class AuthService {
   /**
    * STEP 1 — Send OTP
    */
-  async sendOtp(yourPhone: string, partnerPhone: string): Promise<{ coupleId: string }> {
+  async sendOtp(yourPhone: string, partnerPhone: string): Promise<{ coupleId: string; testCode?: string }> {
     if (yourPhone === partnerPhone) {
       throw new AppError('Your number and partner number cannot be the same', 400, 'SAME_NUMBER');
     }
@@ -47,11 +47,12 @@ export class AuthService {
 
     const partnerCodeMsg = `Welcome to SAWA! Use {{code}} to verify your shared profile. Download it here: https://apps.apple.com/in/app/sawa-made-for-two/id514584879`;
 
-    await otpService.generateAndStore(yourPhone, coupleId);
+    const { code: yourCode, smsSent: yourSmsSent } = await otpService.generateAndStore(yourPhone, coupleId);
     await otpService.generateAndStore(partnerPhone, coupleId, partnerCodeMsg);
 
     logger.info(`[AuthService] OTPs issued for entity: ${coupleId}`);
-    return { coupleId };
+    // Only expose testCode when SMS was not actually sent (dev/test mode)
+    return { coupleId, testCode: yourSmsSent ? undefined : yourCode };
   }
 
   /**
@@ -202,14 +203,18 @@ export class AuthService {
   /**
    * LOGIN STEP 1
    */
-  async loginSendOtp(phone: string): Promise<{ coupleId: string }> {
+  async loginSendOtp(phone: string): Promise<{ coupleId: string; testCode?: string }> {
     const user = await userRepository.findByPhone(phone);
     if (!user) {
       throw new AppError('No account found with this number.', 404, 'USER_NOT_FOUND');
     }
 
-    await otpService.generateAndStore(phone, user.coupleId || '');
-    return { coupleId: user.coupleId || '' };
+    const { code, smsSent } = await otpService.generateAndStore(phone, user.coupleId || '');
+    return {
+      coupleId: user.coupleId || '',
+      // Only expose the code when SMS was not sent (dev/test mode without Twilio)
+      testCode: smsSent ? undefined : code,
+    };
   }
 
   /**

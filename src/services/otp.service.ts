@@ -6,11 +6,12 @@ import { userRepository } from '../repositories/user.repository';
 
 // ─── CONFIGURATION ──────────────────────────────────────────────────────────
 
-const USE_TWILIO = false;
-
 const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID;
 const TWILIO_AUTH = process.env.TWILIO_AUTH_TOKEN;
 const TWILIO_PHONE = process.env.TWILIO_PHONE_NUMBER;
+
+// Auto-enable Twilio when all three credentials are present in env
+const USE_TWILIO = !!(TWILIO_SID && TWILIO_AUTH && TWILIO_PHONE);
 
 const twilioClient = (USE_TWILIO && TWILIO_SID && TWILIO_AUTH)
   ? twilio(TWILIO_SID, TWILIO_AUTH)
@@ -29,38 +30,41 @@ export class OtpService {
    * Generate an OTP for a phone number under a shared coupleId.
    * Optional custom message can be provided for the SMS.
    */
-  async generateAndStore(phone: string, coupleId: string, customMessage?: string): Promise<string> {
+  async generateAndStore(
+    phone: string,
+    coupleId: string,
+    customMessage?: string,
+  ): Promise<{ code: string; smsSent: boolean }> {
     // Remove previous OTP for this phone
     await prisma.otpToken.deleteMany({ where: { phone } });
 
-    let code: string;
-    if (USE_TWILIO) {
-      code = Math.floor(1000 + Math.random() * 9000).toString();
-    } else {
-      code = '1234';
-    }
+    const code = USE_TWILIO
+      ? Math.floor(1000 + Math.random() * 9000).toString()
+      : '1234';
+
     const expiresAt = new Date(Date.now() + OTP_EXPIRES_IN_MINUTES * 60 * 1000);
 
     await prisma.otpToken.create({
-      data: { phone, coupleId, otpCode: code, expiresAt }
+      data: { phone, coupleId, otpCode: code, expiresAt },
     });
 
+    let smsSent = false;
     if (USE_TWILIO && twilioClient && TWILIO_PHONE) {
       try {
         const body = customMessage
           ? customMessage.replace('{{code}}', code)
           : `[SAWA] Your verification code is: ${code}. Valid for ${OTP_EXPIRES_IN_MINUTES} minutes.`;
         await twilioClient.messages.create({ body, from: TWILIO_PHONE, to: formatPhoneE164(phone) });
+        smsSent = true;
         logger.info(`[OtpService] Twilio SMS sent to ${phone}`);
       } catch (err) {
         logger.error(`[OtpService] Twilio failed for ${phone}:`, err);
       }
     } else {
-      logger.info(`[OtpService] Dummy OTP '${code}' created for ${phone} (entity: ${coupleId})`);
-
+      logger.info(`[OtpService] Dev mode — OTP '${code}' created for ${phone} (entity: ${coupleId})`);
     }
 
-    return code;
+    return { code, smsSent };
   }
 
   /**
