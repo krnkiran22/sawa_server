@@ -1,40 +1,35 @@
+import 'dotenv/config';
 import { prisma } from '../lib/prisma';
-import { logger } from '../utils/logger';
+
+/** All application tables (Prisma @@map names). Single TRUNCATE avoids partial clears. */
+const TABLES = [
+  'onboarding_answers',
+  'messages',
+  'notifications',
+  'matches',
+  'community_members',
+  'community_admins',
+  'community_join_requests',
+  'reports',
+  'otp_tokens',
+  'users',
+  'couples',
+  'communities',
+  'prompts',
+] as const;
 
 async function flushDb() {
-  console.log('🗑️  Starting Database Flush...');
+  console.log('Starting full database flush (all rows removed)...');
   try {
-    // List of tables to truncate (order matters if not using CASCADE, 
-    // but PostgreSQL TRUNCATE ... CASCADE handles it cleanly)
-    const tables = [
-      'onboarding_answers',
-      'messages',
-      'notifications',
-      'matches',
-      'community_members',
-      'community_admins',
-      'community_join_requests',
-      'reports',
-      'otp_tokens',
-      'users',
-      'couples',
-      'communities',
-      'prompts'
-    ];
-
-    console.log(`Clearing ${tables.length} tables...`);
-
-    // Using raw query for efficient cascade truncate
-    // We wrap table names in quotes because some might be reserved words or case-sensitive
-    for (const table of tables) {
-      await prisma.$executeRawUnsafe(`TRUNCATE TABLE "${table}" RESTART IDENTITY CASCADE;`);
-      console.log(`  ✅ Cleared ${table}`);
-    }
-
-    console.log('✨ Database Flush Complete!');
+    const list = TABLES.map((t) => `"${t}"`).join(', ');
+    await prisma.$executeRawUnsafe(
+      `TRUNCATE TABLE ${list} RESTART IDENTITY CASCADE;`,
+    );
+    console.log(`Truncated ${TABLES.length} tables in one transaction.`);
+    console.log('Database flush complete.');
     process.exit(0);
   } catch (err) {
-    console.error('❌ Database Flush Failed:', err);
+    console.error('Database flush failed:', err);
     process.exit(1);
   }
 }
