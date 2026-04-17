@@ -114,22 +114,43 @@ export class MatchService {
        return { isMatch: false };
     }
 
-    let existingMatch = await prisma.match.findFirst({
+    // Fetch ALL rows between these two couples and pick in priority order:
+    // accepted > incoming-pending > my-pending > skipped
+    const allExisting = await prisma.match.findMany({
       where: {
         OR: [
           { couple1Id: me.coupleId, couple2Id: targetCouple.coupleId },
           { couple1Id: targetCouple.coupleId, couple2Id: me.coupleId }
         ]
-      }
+      },
+      orderBy: { createdAt: 'asc' }
     });
 
+    const accepted      = allExisting.find(m => m.status === 'accepted');
+    const incomingPending = allExisting.find(m => m.status === 'pending' && m.actionById !== me.coupleId);
+    const myPending     = allExisting.find(m => m.status === 'pending' && m.actionById === me.coupleId);
+
+    // Already connected
+    if (accepted) {
+      return { isMatch: true, matchId: accepted.id };
+    }
+
+    // Treat the incoming-pending as the canonical match to accept
+    const existingMatch = incomingPending || myPending || allExisting[0] || null;
+
     if (existingMatch) {
-      // If the other person (or we) previously skipped, treat it as a fresh pending hello
+      // The other person sent us a hello — accept it
       if (existingMatch.status === 'skipped') {
+        // Reset skipped to pending so the request starts fresh
         await prisma.match.update({
           where: { id: existingMatch.id },
-          data: { status: 'pending', actionById: me.coupleId, couple1Id: me.coupleId, couple2Id: targetCouple.coupleId }
+          data: { status: 'pending', actionById: me.coupleId }
         });
+        return { isMatch: false };
+      }
+
+      // I already sent a pending hello; nothing to do
+      if (existingMatch.actionById === me.coupleId) {
         return { isMatch: false };
       }
 
@@ -211,11 +232,7 @@ export class MatchService {
 
           return { isMatch: true, matchId: existingMatch.id };
        }
-      
-      if (existingMatch.status === 'accepted') {
-        return { isMatch: true, matchId: existingMatch.id };
-      }
-      // Already pending (we initiated) — no-op
+
       return { isMatch: false };
     }
 
