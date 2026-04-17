@@ -88,7 +88,7 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
         (async () => {
           try {
             // Save to Database
-            await prisma.message.create({
+            const savedMessage = await prisma.message.create({
               data: {
                 chatType: chatType as any,
                 matchId: chatType === 'private' ? chatId : null,
@@ -105,6 +105,12 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
                 repliedToName: data.repliedToName,
                 createdAt: new Date(timestamp),
               }
+            });
+
+            // Sync the real DB id back to the sender so edit/delete work immediately
+            socket.emit('chat:messageId', {
+              clientMessageId,
+              realMessageId: savedMessage.id,
             });
 
             // Notifications
