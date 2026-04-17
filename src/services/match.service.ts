@@ -235,6 +235,18 @@ export class MatchService {
             },
           });
 
+          // Emit match:accepted so both couples' PrivateChatScreen lists refresh instantly
+          const io = (global as any).io;
+          if (io) {
+            const acceptedPayload = {
+              matchId: existingMatch.id,
+              couple1Id: me.coupleId,
+              couple2Id: targetCouple.coupleId,
+            };
+            io.to(`couple:${me.coupleId}`).emit('match:accepted', acceptedPayload);
+            io.to(`couple:${targetCouple.coupleId}`).emit('match:accepted', acceptedPayload);
+          }
+
           return { isMatch: true, matchId: existingMatch.id };
        }
 
