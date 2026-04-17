@@ -104,6 +104,8 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
                 repliedToText: data.repliedToText,
                 repliedToName: data.repliedToName,
                 createdAt: new Date(timestamp),
+                // Sender has inherently "read" their own message
+                readBy: [socket.coupleId!],
               }
             });
 
