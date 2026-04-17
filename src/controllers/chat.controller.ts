@@ -265,6 +265,19 @@ export const editMessage = async (req: Request, res: Response): Promise<void> =>
     data: { content: content.trim() },
   });
 
+  // Broadcast updated text to everyone in the chat room in real-time
+  const io = (global as any).io;
+  if (io) {
+    const chatId = updated.matchId || updated.communityId;
+    if (chatId) {
+      io.to(`chat:${chatId}`).emit('chat:messageEdited', {
+        messageId: updated.id,
+        newContent: updated.content,
+        chatId,
+      });
+    }
+  }
+
   sendSuccess({ res, data: { message: { ...updated, _id: updated.id } } });
 };
 
@@ -279,7 +292,18 @@ export const deleteMessage = async (req: Request, res: Response): Promise<void> 
 
   if (forEveryone) {
     if (message.senderId !== coupleId) throw new AppError('Not authorized to delete this message for everyone', 403);
+
+    const chatId = message.matchId || message.communityId;
     await prisma.message.delete({ where: { id: messageId } });
+
+    // Broadcast deletion to everyone in the chat room in real-time
+    const io = (global as any).io;
+    if (io && chatId) {
+      io.to(`chat:${chatId}`).emit('chat:messageDeleted', {
+        messageId,
+        chatId,
+      });
+    }
   }
   // "Delete for me" is handled client-side only — no DB change needed
 

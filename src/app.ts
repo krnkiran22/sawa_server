@@ -43,14 +43,11 @@ export const createApp = (): Application => {
 
   // ─── Performance Monitoring ──────────────────────────────────────────────────
   app.use((req, res, next) => {
-    // Explicitly log that we are hitting the LOCAL server
-    console.log(`[LOCAL-SERVER] ${req.method} ${req.url}`);
-    
     const start = Date.now();
     res.on('finish', () => {
       const duration = Date.now() - start;
       if (duration > 1000) {
-        console.warn(`🐢 Slow Local Request: ${req.method} ${req.url} - ${duration}ms`);
+        console.warn(`🐢 Slow Request: ${req.method} ${req.url} - ${duration}ms`);
       }
     });
     next();
