@@ -20,12 +20,14 @@ export class MatchService {
     const blockedIds = me.blocked || [];
     const SUPPORTED_CITIES = ['Bangalore', 'Chennai', 'New Delhi', 'Delhi', 'Mumbai', 'Gurgaon', 'Noida', 'Hyderabad', 'Goa'];
 
-    // Get interacted IDs
+    // Get interacted IDs in BOTH directions so already-connected couples don't re-appear
     const interactions = await prisma.match.findMany({
-      where: { couple1Id: me.coupleId },
-      select: { couple2Id: true }
+      where: { OR: [{ couple1Id: me.coupleId }, { couple2Id: me.coupleId }] },
+      select: { couple1Id: true, couple2Id: true }
     });
-    const interactedIds = interactions.map((m: any) => m.couple2Id);
+    const interactedIds = Array.from(new Set(
+      interactions.flatMap((m: any) => [m.couple1Id, m.couple2Id]).filter((id: string) => id !== me.coupleId)
+    ));
 
     const where: any = {
       coupleId: { not: me.coupleId, notIn: [...interactedIds, ...blockedIds] },
@@ -122,6 +124,15 @@ export class MatchService {
     });
 
     if (existingMatch) {
+      // If the other person (or we) previously skipped, treat it as a fresh pending hello
+      if (existingMatch.status === 'skipped') {
+        await prisma.match.update({
+          where: { id: existingMatch.id },
+          data: { status: 'pending', actionById: me.coupleId, couple1Id: me.coupleId, couple2Id: targetCouple.coupleId }
+        });
+        return { isMatch: false };
+      }
+
       if (existingMatch.status === 'pending' && existingMatch.actionById !== me.coupleId) {
           // Mutual like
           await prisma.match.update({
@@ -201,7 +212,11 @@ export class MatchService {
           return { isMatch: true, matchId: existingMatch.id };
        }
       
-      return { isMatch: existingMatch.status === 'accepted', matchId: existingMatch.id };
+      if (existingMatch.status === 'accepted') {
+        return { isMatch: true, matchId: existingMatch.id };
+      }
+      // Already pending (we initiated) — no-op
+      return { isMatch: false };
     }
 
     const newMatch = await prisma.match.create({
@@ -272,14 +287,27 @@ export class MatchService {
         return { skipped: true };
     }
 
-    await prisma.match.create({
-      data: { 
-          couple1Id: me.coupleId, 
-          couple2Id: target.coupleId, 
-          status: 'skipped', 
-          actionById: me.coupleId 
-      }
+    // Only create a skip record if there is no existing interaction (accepted stays accepted)
+    const existing = await prisma.match.findFirst({
+      where: {
+        OR: [
+          { couple1Id: me.coupleId, couple2Id: target.coupleId },
+          { couple1Id: target.coupleId, couple2Id: me.coupleId },
+        ],
+      },
     });
+
+    if (!existing) {
+      await prisma.match.create({
+        data: { 
+            couple1Id: me.coupleId, 
+            couple2Id: target.coupleId, 
+            status: 'skipped', 
+            actionById: me.coupleId 
+        }
+      });
+    }
+    // If already accepted, leave it alone; if already skipped, no need to duplicate
 
     return { skipped: true };
   }
