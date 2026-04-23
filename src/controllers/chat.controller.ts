@@ -44,9 +44,9 @@ export const getUnreadCounts = async (req: Request, res: Response): Promise<void
             ? lastMsg.contentType === 'text'
               ? lastMsg.content
               : lastMsg.contentType === 'audio'
-              ? '🎵 Voice message'
+              ? 'Voice message'
               : lastMsg.contentType === 'image'
-              ? '📷 Photo'
+              ? 'Photo'
               : lastMsg.content
             : null,
         lastMessageTime: lastMsg?.createdAt?.toISOString() ?? null,
@@ -98,9 +98,9 @@ export const getGroupUnreadCounts = async (req: Request, res: Response): Promise
           lastMsg.contentType === 'text'
             ? lastMsg.content
             : lastMsg.contentType === 'audio'
-            ? '🎵 Voice message'
+            ? 'Voice message'
             : lastMsg.contentType === 'image'
-            ? '📷 Photo'
+            ? 'Photo'
             : lastMsg.content;
         lastMessagePreview = `${firstName}: ${text}`;
       }
