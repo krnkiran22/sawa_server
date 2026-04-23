@@ -31,6 +31,9 @@ export const createSocketServer = (httpServer: HTTPServer): SocketIOServer => {
     pingInterval: 25000,
     transports: ['websocket', 'polling'],
     allowEIO3: true,
+    // Allow voice messages up to 10 MB (base64 audio). Default is 1 MB which
+    // silently disconnects the socket when longer recordings are sent.
+    maxHttpBufferSize: 10e6,
   });
 
   // ─── Redis Adapter (Scalability) ──────────────────────────────────────────
