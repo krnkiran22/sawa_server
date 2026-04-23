@@ -20,7 +20,8 @@ const envSchema = z.object({
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional(),
   RENDER_EXTERNAL_URL: z.string().optional(),
-  APP_URL: z.string().optional(), // Generic URL for self-wakeup (Railway/Render)
+  APP_URL: z.string().optional(),          // Generic URL for self-wakeup (Railway/Render)
+  RAILWAY_PUBLIC_DOMAIN: z.string().optional(), // Auto-set by Railway; used to build wakeup URL
   TWILIO_ACCOUNT_SID: z.string().optional(),
   TWILIO_AUTH_TOKEN: z.string().optional(),
   TWILIO_PHONE_NUMBER: z.string().optional(),

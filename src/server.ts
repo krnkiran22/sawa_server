@@ -26,24 +26,33 @@ const start = async (): Promise<void> => {
     logger.info(`🌐  API base:     http://localhost:${env.PORT}/api/v1`);
   });
 
-  // ─── Self-Wakeup Logic (Keep-Alive on Free Tiers) ───────────────────────────
-  const wakeupUrl = env.APP_URL || env.RENDER_EXTERNAL_URL;
-  if (wakeupUrl) {
-    const WAKEUP_INTERVAL = 14 * 60 * 1000; // 14 minutes (just before standard 15m sleep)
+  // ─── Self-Wakeup Logic (Keep-Alive on Free / Hobby Tiers) ──────────────────
+  // Priority: APP_URL > RENDER_EXTERNAL_URL > RAILWAY_PUBLIC_DOMAIN (auto-set by Railway)
+  const rawWakeupUrl =
+    env.APP_URL ||
+    env.RENDER_EXTERNAL_URL ||
+    (env.RAILWAY_PUBLIC_DOMAIN ? `https://${env.RAILWAY_PUBLIC_DOMAIN}` : undefined);
+
+  if (rawWakeupUrl) {
+    const wakeupBase = rawWakeupUrl.replace(/\/$/, ''); // strip trailing slash
+    // Ping every 10 minutes — well within the 15-minute sleep window on free tiers
+    const WAKEUP_INTERVAL = 10 * 60 * 1000;
     setInterval(async () => {
       try {
-        const url = `${wakeupUrl}/wakeup`;
-        const res = await fetch(url);
+        const url = `${wakeupBase}/wakeup`;
+        const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
         if (res.ok) {
-           logger.info(`⏰ Self-wakeup ping successful: ${url}`);
+          logger.info(`⏰ Self-wakeup ping OK: ${url}`);
         } else {
-           logger.warn(`⏰ Self-wakeup ping failed status ${res.status}`);
+          logger.warn(`⏰ Self-wakeup ping failed (${res.status}): ${url}`);
         }
       } catch (err) {
-        logger.error('⏰ Error during self-wakeup ping:', err);
+        logger.error('⏰ Self-wakeup ping error:', err);
       }
     }, WAKEUP_INTERVAL);
-    logger.info(`⏰ Self-wakeup scheduled every 14 mins for: ${wakeupUrl}`);
+    logger.info(`⏰ Self-wakeup scheduled every 10 mins → ${wakeupBase}/wakeup`);
+  } else {
+    logger.warn('⚠️  No APP_URL / RAILWAY_PUBLIC_DOMAIN set — self-wakeup disabled. Server may sleep on free tiers.');
   }
 
   // ─── Graceful Shutdown ──────────────────────────────────────────────────────
