@@ -20,8 +20,11 @@ const envSchema = z.object({
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional(),
   RENDER_EXTERNAL_URL: z.string().optional(),
-  APP_URL: z.string().optional(),          // Generic URL for self-wakeup (Railway/Render)
-  RAILWAY_PUBLIC_DOMAIN: z.string().optional(), // Auto-set by Railway; used to build wakeup URL
+  APP_URL: z.string().optional(),
+  RAILWAY_PUBLIC_DOMAIN: z.string().optional(),
+  // Comma-separated phone numbers (with country code, e.g. 916369758396,917305410425)
+  // that can log in without OTP for testing / demo purposes.
+  BYPASS_PHONES: z.string().optional(),
   TWILIO_ACCOUNT_SID: z.string().optional(),
   TWILIO_AUTH_TOKEN: z.string().optional(),
   TWILIO_PHONE_NUMBER: z.string().optional(),

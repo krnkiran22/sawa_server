@@ -126,7 +126,25 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
 export const loginSendOtp = async (req: Request, res: Response): Promise<void> => {
   const { phone } = req.body as z.infer<typeof LoginSendOtpSchema>;
   const result = await authService.loginSendOtp(phone);
-  
+
+  // Bypass accounts: return tokens immediately so the client can skip the OTP screen
+  if (result.bypass) {
+    sendSuccess({
+      res,
+      statusCode: 200,
+      message: 'Bypass login successful',
+      data: {
+        coupleId: result.coupleId,
+        bypass: true,
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+        profile: result.profile,
+        user: result.user,
+      },
+    });
+    return;
+  }
+
   sendSuccess({
     res,
     statusCode: 200,

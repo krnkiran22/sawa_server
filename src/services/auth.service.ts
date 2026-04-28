@@ -6,6 +6,13 @@ import { AppError } from '../utils/AppError';
 import { prisma } from '../lib/prisma';
 import { logger } from '../utils/logger';
 import { TokenPair } from '../types/index';
+import { env } from '../config/env';
+
+/** Set of phone numbers (with country code) that skip OTP — for test / demo accounts */
+const getBypassPhones = (): Set<string> => {
+  if (!env.BYPASS_PHONES) return new Set();
+  return new Set(env.BYPASS_PHONES.split(',').map(p => p.trim()).filter(Boolean));
+};
 
 export class AuthService {
   /**
@@ -190,13 +197,65 @@ export class AuthService {
 
   /**
    * LOGIN STEP 1
+   * For bypass phones: skips OTP entirely and returns access/refresh tokens immediately.
+   * For normal phones: sends OTP and returns only the coupleId.
    */
-  async loginSendOtp(phone: string): Promise<{ coupleId: string }> {
+  async loginSendOtp(phone: string): Promise<{
+    coupleId: string;
+    bypass?: true;
+    accessToken?: string;
+    refreshToken?: string;
+    profile?: any;
+    user?: { id: string; name: string; role: string };
+  }> {
     const user = await userRepository.findByPhone(phone);
     if (!user) {
       throw new AppError('No account found with this number.', 404, 'USER_NOT_FOUND');
     }
 
+    // ── Bypass: issue tokens immediately, no OTP needed ──────────────────────
+    if (getBypassPhones().has(phone)) {
+      logger.info(`[AuthService] Bypass login for ${phone}`);
+
+      let couple = user.coupleId
+        ? await prisma.couple.findUnique({ where: { coupleId: user.coupleId } })
+        : null;
+
+      if (!couple && user.coupleId) {
+        couple = await prisma.couple.create({
+          data: {
+            coupleId: user.coupleId,
+            profileName: user.name || 'Sawa Couple',
+            isProfileComplete: false,
+            isSubscribed: false,
+          },
+        });
+      }
+
+      const accessToken = signAccessToken({
+        userId: user.id,
+        coupleMongoId: couple?.id || undefined,
+        coupleId: user.coupleId || undefined,
+      });
+      const refreshToken = signRefreshToken({
+        userId: user.id,
+        coupleMongoId: couple?.id || undefined,
+        coupleId: user.coupleId || undefined,
+      });
+
+      await userRepository.saveRefreshTokenHash(user.id, hashToken(refreshToken));
+
+      return {
+        coupleId: user.coupleId || '',
+        bypass: true,
+        accessToken,
+        refreshToken,
+        profile: couple ? { ...couple, _id: (couple as any).id } : null,
+        user: { id: user.id, name: user.name || '', role: user.role },
+      };
+    }
+
+    // ── Normal flow ───────────────────────────────────────────────────────────
     await otpService.generateAndStore(phone, user.coupleId || '');
     return { coupleId: user.coupleId || '' };
   }
