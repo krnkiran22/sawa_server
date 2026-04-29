@@ -142,7 +142,7 @@ export class MatchService {
       // The other person sent us a hello — accept it
       if (existingMatch.status === 'skipped') {
         // Reset skipped to pending; ensure initiator (me) is couple1 so getIncomingRequests finds it
-        await prisma.match.update({
+        const updatedMatch = await prisma.match.update({
           where: { id: existingMatch.id },
           data: {
             status: 'pending',
@@ -151,6 +151,44 @@ export class MatchService {
             couple2Id: targetCouple.coupleId,
           }
         });
+
+        // Notify the other couple (who was skipped) so they know this person said hello.
+        // Previously this returned early without any notification, silently dropping the request.
+        (async () => {
+          try {
+            const notification = await prisma.notification.create({
+              data: {
+                recipientId: targetCouple.coupleId,
+                senderId: me.coupleId,
+                type: 'match',
+                title: 'New Connection Request!',
+                message: `${me.profileName} wants to connect with you!`,
+                data: {
+                  matchId: updatedMatch.id,
+                  coupleId: me.coupleId,
+                  profileName: me.profileName,
+                  primaryPhoto: me.primaryPhoto,
+                  location: me.locationCity,
+                  bio: me.bio,
+                  tags: me.activities,
+                  vibes: me.socialVibes,
+                  matchCriteria: me.matchCriteria,
+                  isPending: true,
+                }
+              }
+            });
+            emitRealtimeNotification(targetCouple.coupleId, {
+              notificationId: notification.id,
+              type: notification.type,
+              title: notification.title,
+              message: notification.message,
+              data: notification.data,
+            });
+          } catch (err) {
+            logger.error('[MatchService] Failed to notify skipped couple of new hello:', err);
+          }
+        })();
+
         return { isMatch: false };
       }
 
