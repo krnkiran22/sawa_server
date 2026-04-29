@@ -10,6 +10,11 @@ const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID;
 const TWILIO_AUTH = process.env.TWILIO_AUTH_TOKEN;
 const TWILIO_PHONE = process.env.TWILIO_PHONE_NUMBER;
 
+// Android SMS Retriever hash — appended to SMS so Android auto-detects the OTP.
+// Set ANDROID_APP_HASH in the server env after getting the value from the app logs.
+// Debug and release builds have DIFFERENT hashes; set the production one for Play Store.
+const ANDROID_APP_HASH = process.env.ANDROID_APP_HASH || '';
+
 // Twilio is required — all three credentials must be set
 const TWILIO_READY = !!(TWILIO_SID && TWILIO_AUTH && TWILIO_PHONE);
 
@@ -50,9 +55,13 @@ export class OtpService {
       data: { phone, coupleId, otpCode: code, expiresAt },
     });
 
+    // Append Android SMS Retriever hash if configured so Android auto-detects the OTP.
+    // Format required by Google: message must end with "<#> {11-char-hash}"
+    const hashSuffix = ANDROID_APP_HASH ? `\n\n<#> ${ANDROID_APP_HASH}` : '';
+
     const body = customMessage
-      ? customMessage.replace('{{code}}', code)
-      : `[SAWA] Your verification code is: ${code}. Valid for ${OTP_EXPIRES_IN_MINUTES} minutes.`;
+      ? customMessage.replace('{{code}}', code) + hashSuffix
+      : `[SAWA] Your verification code is: ${code}. Valid for ${OTP_EXPIRES_IN_MINUTES} minutes.${hashSuffix}`;
 
     try {
       await twilioClient.messages.create({ body, from: TWILIO_PHONE, to: formatPhoneE164(phone) });
