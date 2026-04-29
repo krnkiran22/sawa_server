@@ -166,6 +166,16 @@ export class MatchService {
             data: { status: 'accepted', actionById: me.coupleId }
           });
 
+          // Delete the original "New Connection Request" pending notifications for this match
+          // so they no longer show "Say Hello Back" after accepting.
+          // The new "You've Connected!" notifications created below replace them.
+          await prisma.$executeRaw`
+            DELETE FROM notifications
+            WHERE type = 'match'
+              AND data->>'matchId' = ${existingMatch.id}
+              AND data->>'isPending' = 'true'
+          `.catch(() => {}); // non-critical
+
           await prisma.notification.createMany({
             data: [
               {
