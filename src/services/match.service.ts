@@ -439,7 +439,91 @@ export class MatchService {
     }).filter(Boolean);
   }
 
-  async acceptMatch(requestingCoupleId: string, targetCoupleIdStr: string, coupleMongoId?: string) {
+  async acceptMatch(requestingCoupleId: string, targetCoupleIdStr: string, coupleMongoId?: string, matchId?: string) {
+    // If the caller provides the exact matchId (from the notification data), use it directly
+    // to accept the correct pending match — avoids edge cases where actionById lookup picks
+    // the wrong match (e.g. when Kiran had also sent a pending hello to the same couple).
+    if (matchId) {
+      const me = coupleMongoId
+        ? await prisma.couple.findUnique({ where: { id: coupleMongoId }, select: { coupleId: true } })
+        : await prisma.couple.findUnique({ where: { coupleId: requestingCoupleId }, select: { coupleId: true } });
+      if (!me) throw new AppError('Profile not found', 404);
+
+      const match = await prisma.match.findUnique({ where: { id: matchId } });
+      if (!match) {
+        // matchId not found, fall back to sayHello
+        return this.sayHello(requestingCoupleId, targetCoupleIdStr, coupleMongoId);
+      }
+
+      // Already accepted — return the existing matchId so client can open chat
+      if (match.status === 'accepted') {
+        return { isMatch: true, matchId: match.id };
+      }
+
+      if (match.status === 'pending' && match.actionById !== me.coupleId) {
+        // The other couple initiated — accept it
+        await prisma.match.update({
+          where: { id: match.id },
+          data: { status: 'accepted', actionById: me.coupleId }
+        });
+
+        const targetCouple = await prisma.couple.findUnique({
+          where: { coupleId: match.actionById }
+        });
+
+        // Delete old pending notifications and create connected ones
+        await prisma.$executeRaw`
+          DELETE FROM notifications
+          WHERE type = 'match'
+            AND data->>'matchId' = ${match.id}
+            AND data->>'isPending' = 'true'
+        `.catch(() => {});
+
+        if (targetCouple) {
+          await prisma.notification.createMany({
+            data: [
+              {
+                recipientId: me.coupleId,
+                senderId: targetCouple.coupleId,
+                type: 'match',
+                title: "You've Connected!",
+                message: `You connected with ${targetCouple.profileName}!`,
+                data: {
+                  matchId: match.id,
+                  coupleId: targetCouple.coupleId,
+                  profileName: targetCouple.profileName,
+                  isPending: false,
+                }
+              },
+              {
+                recipientId: targetCouple.coupleId,
+                senderId: me.coupleId,
+                type: 'match',
+                title: "You've Connected!",
+                message: `You connected with ${(await prisma.couple.findUnique({ where: { coupleId: me.coupleId }, select: { profileName: true } }))?.profileName}!`,
+                data: {
+                  matchId: match.id,
+                  coupleId: me.coupleId,
+                  isPending: false,
+                }
+              }
+            ]
+          }).catch(() => {});
+
+          const io = (global as any).io;
+          if (io) {
+            io.to(`couple:${me.coupleId}`).emit('match:accepted', { matchId: match.id });
+            io.to(`couple:${targetCouple.coupleId}`).emit('match:accepted', { matchId: match.id });
+          }
+        }
+
+        return { isMatch: true, matchId: match.id };
+      }
+
+      // My own pending hello or unknown state — fall through to sayHello
+      return this.sayHello(requestingCoupleId, targetCoupleIdStr, coupleMongoId);
+    }
+
     return this.sayHello(requestingCoupleId, targetCoupleIdStr, coupleMongoId);
   }
 

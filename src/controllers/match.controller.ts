@@ -8,6 +8,7 @@ import { validate } from '../middleware/validate';
 
 const MatchActionSchema = z.object({
   targetCoupleId: z.string().min(1, 'Target couple ID is required'),
+  matchId: z.string().optional(), // optional: accept by exact matchId for reliability
 });
 
 export const validateMatchAction = validate(MatchActionSchema);
@@ -73,9 +74,9 @@ export const getIncomingRequests = async (req: Request, res: Response): Promise<
 
 export const acceptMatch = async (req: Request, res: Response): Promise<void> => {
   const { coupleId, coupleMongoId } = req.user!;
-  const { targetCoupleId } = req.body as z.infer<typeof MatchActionSchema>;
+  const { targetCoupleId, matchId } = req.body as z.infer<typeof MatchActionSchema>;
   
-  const result = await matchService.acceptMatch(coupleId!, targetCoupleId, coupleMongoId);
+  const result = await matchService.acceptMatch(coupleId!, targetCoupleId, coupleMongoId, matchId);
   sendSuccess({ res, statusCode: 200, message: 'Match accepted', data: result });
 };
 
