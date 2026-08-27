@@ -4,6 +4,26 @@
 
 ---
 
+## [2026-08-27] — In-house move: Dockerfile + AWS-native object storage
+
+**Why:** the platform is moving from Railway to Sawa's own AWS (ECS Fargate behind an ALB,
+Mumbai — `sawa_infra` repo). Railway built via Nixpacks, so the repo had no container
+definition; and `lib/storage.ts` hard-required an explicit endpoint + access keys, which fits
+Tigris but not ECS, where the task's IAM role should supply credentials.
+
+**What:**
+- `Dockerfile` (multi-stage, node:22-slim, arm64/Graviton): build stage runs
+  `prisma generate` + `tsc`; runtime stage is `--omit=dev` (prisma CLI, @prisma/client and
+  pm2 are production deps, so `npm start` keeps its exact Railway contract: `prisma db push`
+  then `pm2-runtime` — which self-limits to ONE worker without REDIS_URL). `.dockerignore`
+  keeps env files and junk out of the context.
+- `lib/storage.ts`: custom-endpoint deployments (Tigris/R2/MinIO) still require explicit
+  keys and path-style; with no `S3_ENDPOINT` the client is native AWS S3 — SDK default
+  provider chain (task role), virtual-hosted URLs, and `publicUrlForKey` falls back to the
+  regional bucket URL. Fully backward compatible: Railway's env shape behaves unchanged.
+
+Gates: tsc clean, jest 85/85. (First commit on the Sawa org's clean-history `sawa_server`.)
+
 ## [2026-08-27] — Couple identity: atomic, reconciled, observable (the auth audit lands)
 
 **Why:** two field bugs — "login errors once then works" and "profile created but login lands in

@@ -25,12 +25,15 @@ import { logger } from '../utils/logger';
 let _client: S3Client | null = null;
 
 export function isStorageConfigured(): boolean {
-  return Boolean(
-    env.S3_ENDPOINT &&
-      env.S3_BUCKET &&
-      env.S3_ACCESS_KEY_ID &&
-      env.S3_SECRET_ACCESS_KEY,
-  );
+  // Two shapes of "configured":
+  //  - custom S3-compatible endpoint (Tigris/R2/MinIO): explicit keys required;
+  //  - native AWS S3 (no S3_ENDPOINT, e.g. ECS): bucket alone is enough — the
+  //    SDK default provider chain supplies task-role credentials.
+  if (!env.S3_BUCKET) return false;
+  if (env.S3_ENDPOINT) {
+    return Boolean(env.S3_ACCESS_KEY_ID && env.S3_SECRET_ACCESS_KEY);
+  }
+  return true;
 }
 
 /**
@@ -46,15 +49,23 @@ export function isImageStorageConfigured(): boolean {
 
 function getClient(): S3Client {
   if (_client) return _client;
+  const hasExplicitKeys = Boolean(env.S3_ACCESS_KEY_ID && env.S3_SECRET_ACCESS_KEY);
   _client = new S3Client({
-    endpoint: env.S3_ENDPOINT,
+    // Omitted endpoint → native AWS S3 regional endpoint.
+    ...(env.S3_ENDPOINT ? { endpoint: env.S3_ENDPOINT } : {}),
     region: env.S3_REGION || 'auto',
-    // Path-style keeps us compatible across S3 providers (Tigris, R2, MinIO…).
-    forcePathStyle: true,
-    credentials: {
-      accessKeyId: env.S3_ACCESS_KEY_ID as string,
-      secretAccessKey: env.S3_SECRET_ACCESS_KEY as string,
-    },
+    // Path-style keeps us compatible across S3 providers (Tigris, R2, MinIO…);
+    // native AWS gets virtual-hosted style (path-style is deprecated there).
+    forcePathStyle: Boolean(env.S3_ENDPOINT),
+    // No explicit keys → SDK default provider chain (ECS task role).
+    ...(hasExplicitKeys
+      ? {
+          credentials: {
+            accessKeyId: env.S3_ACCESS_KEY_ID as string,
+            secretAccessKey: env.S3_SECRET_ACCESS_KEY as string,
+          },
+        }
+      : {}),
   });
   return _client;
 }
@@ -92,7 +103,10 @@ export function publicUrlForKey(key: string): string {
     return `${env.S3_PUBLIC_BASE_URL.replace(/\/$/, '')}/${key}`;
   }
   const endpoint = (env.S3_ENDPOINT || '').replace(/\/$/, '');
-  return `${endpoint}/${bucketForKey(key)}/${key}`;
+  if (endpoint) return `${endpoint}/${bucketForKey(key)}/${key}`;
+  // Native AWS S3: virtual-hosted regional URL (only ever used as a presign
+  // source / identifier — the bucket stays private).
+  return `https://${bucketForKey(key)}.s3.${env.S3_REGION}.amazonaws.com/${key}`;
 }
 
 /**
