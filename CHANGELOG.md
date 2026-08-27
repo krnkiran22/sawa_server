@@ -4,6 +4,20 @@
 
 ---
 
+## [2026-08-28] — Sentry error monitoring, DSN-optional (Arfam ask, in-house move)
+
+**Why:** the platform had zero error observability (a logged launch blocker), and the AWS
+cutover is exactly when silent failures are most expensive. Pattern matches storage/push:
+without `SENTRY_DSN` the module is inert and behavior is byte-identical.
+
+**What:** `src/lib/sentry.ts` (init-first module: dotenv, then Sentry.init with
+`sendDefaultPii: false` — phone numbers are this product's identity key and must not land in
+a third-party tool; tracesSampleRate 0.1). First import of `server.ts`;
+`Sentry.setupExpressErrorHandler(app)` ahead of the response-shaping `errorHandler` in
+`app.ts`. `SENTRY_DSN` / `SENTRY_ENVIRONMENT` added to env.ts (optional) and `.env.example`.
+Dependency: `@sentry/node` 9.47.1. Gates: tsc clean, jest 85/85. Mobile + admin Sentry stay
+in the workspace todo (§4.5) — they ride their own build cycles.
+
 ## [2026-08-27] — In-house move: Dockerfile + AWS-native object storage
 
 **Why:** the platform is moving from Railway to Sawa's own AWS (ECS Fargate behind an ALB,

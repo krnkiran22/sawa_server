@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import compression from 'compression';
 import { env } from './config/env';
+import { Sentry, sentryEnabled } from './lib/sentry';
 import { errorHandler } from './middleware/errorHandler';
 import apiRouter from './routes/index';
 
@@ -587,6 +588,10 @@ export const createApp = (): Application => {
   });
 
   // ─── Global Error Handler ────────────────────────────────────────────────────
+  // Sentry's handler captures and forwards; ours stays the response shaper.
+  if (sentryEnabled) {
+    Sentry.setupExpressErrorHandler(app);
+  }
   app.use(errorHandler);
 
   return app;

@@ -26,6 +26,9 @@ const envSchema = z.object({
 
   // Optional — only required if features are enabled
   REDIS_URL: z.string().optional(),
+  // Error monitoring — DSN-optional (src/lib/sentry.ts); absent = disabled.
+  SENTRY_DSN: z.string().optional(),
+  SENTRY_ENVIRONMENT: z.string().optional(),
   CLOUDINARY_CLOUD_NAME: z.string().optional(),
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional(),

@@ -1,3 +1,5 @@
+// Sentry first: instrumentation must initialize before anything else loads.
+import './lib/sentry';
 import http from 'http';
 import { createApp } from './app';
 import { connectDB } from './config/db';
