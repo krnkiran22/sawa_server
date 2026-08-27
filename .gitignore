@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Build output
+# dist/ — committed so Railway can serve without a build step
+
+# Environment variables — NEVER commit these
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Coverage
+coverage/
+
+# Upload temp
+uploads/
+
+/src/generated/prisma
+
+# Build output — rebuilt by postinstall (tsc) on deploy; never track it (RULES.md §8).
+dist/

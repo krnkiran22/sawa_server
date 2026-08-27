@@ -1,0 +1,490 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String    @id @default(cuid()) @map("_id")
+  phone            String?   @unique
+  name             String?
+  email            String?   @unique
+  dob              String?
+  coupleId         String?
+  isPhoneVerified  Boolean   @default(false)
+  refreshTokenHash String?
+  role             UserRole  @default(primary)
+  password         String?
+  // Activity tracking — touched on every authenticated request.
+  // Used by admin to surface "Inactive" status (no activity > N days).
+  lastActiveAt     DateTime?
+  // Push notification credentials. Captured by mobile app at login/permission grant.
+  pushToken        String?
+  pushPlatform     String?
+  // The app language the user selected (en/hi/kn/mr). Sent by the mobile app on
+  // login and whenever the language is changed. Used to localize push/APNs text.
+  preferredLocale  String?   @default("en")
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  partnerOf1       Couple[]  @relation("Partner1")
+  partnerOf2       Couple[]  @relation("Partner2")
+  messages         Message[] @relation("Message_senderUser")
+  coupleProfile    Couple?   @relation("CouplePartners", fields: [coupleId], references: [coupleId])
+  refreshSessions  RefreshSession[]
+
+  @@index([coupleId])
+  @@index([lastActiveAt])
+  @@map("users")
+}
+
+// One row per live device session. Replaces the single refreshTokenHash slot
+// on User, where two devices on one account rotated each other's token away
+// and took turns being logged out (couple-identity audit, 2026-08-27). The
+// legacy column stays until every session has rotated through here once.
+model RefreshSession {
+  id         String    @id @default(cuid()) @map("_id")
+  userId     String
+  tokenHash  String    @unique
+  createdAt  DateTime  @default(now())
+  expiresAt  DateTime
+  lastUsedAt DateTime?
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("refresh_sessions")
+}
+
+model Couple {
+  id                    String                 @id @default(cuid()) @map("_id")
+  coupleId              String                 @unique
+  profileName           String?
+  relationshipStatus    String?
+  bio                   String?
+  primaryPhoto          String?
+  secondaryPhotos       String[]               @default([])
+  locationCity          String?
+  locationCountry       String?
+  locationLatitude      Float?
+  locationLongitude     Float?
+  isProfileComplete     Boolean                @default(false)
+  isSubscribed          Boolean                @default(false)
+  isOpenToMeeting       Boolean                @default(true)
+  meetingFrequency      String?
+  socialVibes           String[]               @default([])
+  activities            String[]               @default([])
+  avoidances            String[]               @default([])
+  matchCriteria         String[]               @default([])
+  blocked               String[]               @default([])
+  // Admin-controlled ban. When set, both partners are blocked from logging in
+  // and re-establishing sessions (existing tokens are rejected by middleware).
+  bannedAt              DateTime?
+  banReason             String?
+  // Admin verification pipeline. New couples start `pending` (shown as
+  // "Unverified" in the app but fully functional). Admin approves → `verified`.
+  // Admin rejects → `rejected`: middleware locks the account and returns the
+  // rejection reason; the account is deleted when the user acknowledges the
+  // rejection popup (or by the 30-day auto-purge for never-opened accounts).
+  verificationStatus    VerificationStatus     @default(pending)
+  rejectionReason       String?
+  verifiedAt            DateTime?
+  rejectedAt            DateTime?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  partner1Id            String?
+  partner2Id            String?
+  communityAdmins       CommunityAdmin[]
+  communityRequests     CommunityJoinRequest[]
+  communityMembers      CommunityMember[]
+  partner1              User?                  @relation("Partner1", fields: [partner1Id], references: [id])
+  partner2              User?                  @relation("Partner2", fields: [partner2Id], references: [id])
+  matchActions          Match[]                @relation("Match_actionBy")
+  match1                Match[]                @relation("Match_couple1")
+  match2                Match[]                @relation("Match_couple2")
+  sentMessages          Message[]              @relation("Message_sender")
+  receivedNotifications Notification[]         @relation("Notification_recipient")
+  sentNotifications     Notification[]         @relation("Notification_sender")
+  answers               OnboardingAnswer[]
+  reportsGiven          Report[]               @relation("Report_reporter")
+  users                 User[]                 @relation("CouplePartners")
+
+  @@index([coupleId])
+  @@index([locationCity, isProfileComplete])
+  @@index([partner1Id])
+  @@index([partner2Id])
+  @@index([isProfileComplete, isOpenToMeeting, locationCity])
+  @@index([bannedAt])
+  // Admin pending-approval queue + the 30-day rejected-account purge scan.
+  @@index([verificationStatus, rejectedAt])
+  // GIN index so `blocked: { has: X }` (profile-view / report-stats) uses an
+  // index instead of a sequential scan on every couple row.
+  @@index([blocked], type: Gin)
+  @@map("couples")
+}
+
+model OnboardingAnswer {
+  id                String   @id @default(cuid()) @map("_id")
+  coupleId          String
+  questionId        String
+  selectedOptionIds String[]
+  couple            Couple   @relation(fields: [coupleId], references: [coupleId])
+
+  @@index([coupleId])
+  @@index([coupleId, questionId])
+  @@map("onboarding_answers")
+}
+
+model Community {
+  id            String                 @id @default(cuid()) @map("_id")
+  name          String                 @unique
+  description   String?
+  city          String
+  coverImageUrl String?
+  maxMembers    Int                    @default(50)
+  tags          String[]               @default([])
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  admins        CommunityAdmin[]
+  joinRequests  CommunityJoinRequest[]
+  members       CommunityMember[]
+  messages      Message[]
+
+  @@index([city])
+  @@index([createdAt])
+  @@map("communities")
+}
+
+model CommunityMember {
+  id          String    @id @default(cuid()) @map("_id")
+  communityId String
+  coupleId    String
+  community   Community @relation(fields: [communityId], references: [id])
+  couple      Couple    @relation(fields: [coupleId], references: [coupleId])
+
+  @@unique([communityId, coupleId])
+  @@index([coupleId])
+  @@map("community_members")
+}
+
+model CommunityAdmin {
+  id          String    @id @default(cuid()) @map("_id")
+  communityId String
+  coupleId    String
+  community   Community @relation(fields: [communityId], references: [id])
+  couple      Couple    @relation(fields: [coupleId], references: [coupleId])
+
+  @@unique([communityId, coupleId])
+  @@index([coupleId])
+  @@map("community_admins")
+}
+
+model CommunityJoinRequest {
+  id          String    @id @default(cuid()) @map("_id")
+  communityId String
+  coupleId    String
+  community   Community @relation(fields: [communityId], references: [id])
+  couple      Couple    @relation(fields: [coupleId], references: [coupleId])
+
+  @@unique([communityId, coupleId])
+  @@index([coupleId])
+  @@map("community_join_requests")
+}
+
+model Match {
+  id         String      @id @default(cuid()) @map("_id")
+  couple1Id  String
+  couple2Id  String
+  actionById String
+  status     MatchStatus
+  matchScore Float       @default(0)
+  insights   String[]    @default([])
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  actionBy   Couple      @relation("Match_actionBy", fields: [actionById], references: [coupleId])
+  couple1    Couple      @relation("Match_couple1", fields: [couple1Id], references: [coupleId])
+  couple2    Couple      @relation("Match_couple2", fields: [couple2Id], references: [coupleId])
+  messages   Message[]   @relation("Message_privateChat")
+
+  @@unique([couple1Id, couple2Id])
+  @@index([couple2Id, status])
+  @@index([couple1Id, status])
+  @@index([status])
+  @@index([createdAt])
+  // Hit on every GET /subscriptions/me (usage counting filters by actionById).
+  @@index([actionById])
+  @@map("matches")
+}
+
+model Message {
+  id                   String      @id @default(cuid()) @map("_id")
+  chatType             ChatType
+  matchId              String?
+  communityId          String?
+  senderId             String
+  senderUserId         String?
+  senderName           String
+  senderIndividualName String?
+  content              String
+  contentType          ContentType @default(text)
+  audioDuration        Int?
+  repliedToId          String?
+  repliedToText        String?
+  repliedToName        String?
+  readBy               String[]    @default([])
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  community            Community?  @relation(fields: [communityId], references: [id])
+  match                Match?      @relation("Message_privateChat", fields: [matchId], references: [id])
+  sender               Couple      @relation("Message_sender", fields: [senderId], references: [coupleId])
+  senderUser           User?       @relation("Message_senderUser", fields: [senderUserId], references: [id])
+
+  @@index([matchId, createdAt])
+  @@index([communityId, createdAt])
+  // Speeds up unread-count queries that filter by senderId within a chat.
+  @@index([matchId, senderId])
+  @@index([communityId, senderId])
+  // Used by the admin per-user message-count query (delete/inspect flows).
+  @@index([senderUserId])
+  // Partner-thread history (chatType=partner scans by couple + time).
+  @@index([senderId, chatType, createdAt])
+  @@map("messages")
+}
+
+model Notification {
+  id          String           @id @default(cuid()) @map("_id")
+  recipientId String
+  senderId    String?
+  type        NotificationType
+  title       String
+  message     String
+  data        Json?
+  read        Boolean          @default(false)
+  // Soft-clear stamp. Cleared rows disappear from the list/unread endpoints but
+  // are NEVER hard-deleted here: us_mood Notification rows double as the durable
+  // mood-history source (us.service.ts getMoodHistory), and deleting them would
+  // silently erase that record. A future reaper may purge old cleared rows
+  // except us_mood.
+  clearedAt   DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  recipient   Couple           @relation("Notification_recipient", fields: [recipientId], references: [coupleId])
+  sender      Couple?          @relation("Notification_sender", fields: [senderId], references: [coupleId])
+
+  @@index([recipientId, read])
+  @@index([recipientId, type])
+  // List + unread endpoints filter on clearedAt IS NULL per recipient.
+  @@index([recipientId, clearedAt])
+  @@index([createdAt])
+  // Speeds up upsertMatchPending/Connected queries that filter by senderId+type.
+  @@index([senderId, type])
+  @@map("notifications")
+}
+
+model OtpToken {
+  id        String   @id @default(cuid()) @map("_id")
+  phone     String
+  coupleId  String
+  otpCode   String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([phone])
+  @@index([phone, coupleId])
+  @@map("otp_tokens")
+}
+
+model Prompt {
+  id        String   @id @default(cuid()) @map("_id")
+  text      String   @unique
+  category  String   @default("chat_shortcut")
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, category])
+  @@index([category, sortOrder])
+  @@map("prompts")
+}
+
+model Report {
+  id         String       @id @default(cuid()) @map("_id")
+  reporterId String
+  targetId   String
+  reason     String
+  details    String?
+  status     ReportStatus @default(pending)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  reporter   Couple       @relation("Report_reporter", fields: [reporterId], references: [coupleId])
+
+  @@index([reporterId])
+  @@index([targetId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("reports")
+}
+
+// ─── Us Space (shared couple space) durable storage ──────────────────────────
+// These were previously kept only in Redis (a cache). They now live in Postgres
+// so sticky notes, planned dates, game scores and cycle data survive restarts
+// and cache eviction. Keyed by coupleId (the shared couple entity UUID).
+
+model FridgeNote {
+  id        String    @id @default(cuid()) @map("_id")
+  coupleId  String
+  text      String
+  color     String    @default("yellow")
+  byName    String
+  byUserId  String
+  ackBy     String?
+  ackAt     DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([coupleId, createdAt])
+  @@map("fridge_notes")
+}
+
+model PlannedDate {
+  id        String   @id @default(cuid()) @map("_id")
+  coupleId  String
+  activity  String
+  dateLabel String?
+  rawDate   String
+  time      String?
+  note      String?
+  fromName  String?
+  byUserId  String?
+  createdAt DateTime @default(now())
+
+  @@index([coupleId, rawDate])
+  @@map("planned_dates")
+}
+
+model UsGameScore {
+  id       String @id @default(cuid()) @map("_id")
+  coupleId String
+  userId   String
+  wins     Int    @default(0)
+
+  @@unique([coupleId, userId])
+  @@index([coupleId])
+  @@map("us_game_scores")
+}
+
+model CoupleUsState {
+  id                   String    @id @default(cuid()) @map("_id")
+  coupleId             String    @unique
+  // Menstrual cycle (set by the partner-role account)
+  cycleLastPeriodStart String?
+  cyclePeriodLength    Int?
+  cycleCycleLength     Int?
+  cycleUpdatedBy       String?
+  cycleUpdatedByName   String?
+  cycleUpdatedAt       DateTime?
+  // Tic-Tac-Toe current win streak
+  gameStreakUserId     String?
+  gameStreakCount      Int       @default(0)
+  // Tic-Tac-Toe live shared session so both partners can (re)join the same match
+  // even after leaving the screen. Cleared on quit / game end / stale expiry.
+  gameSessionId        String?
+  gameSessionStatus    String?   // 'pending' (challenged) | 'active' (playing)
+  gameChallengerId     String?   // the user who sent the challenge (always plays X)
+  gameBoard            String?   // 9 chars, '_' = empty, e.g. "X__O_____"
+  gameTurn             String?   // 'X' | 'O'
+  gameSessionAt        DateTime? // last activity — used to auto-expire stale games
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@map("couple_us_state")
+}
+
+// ─── Subscriptions (Sawa Prime / Sawa Prime Plus) ───────────────────────────
+// Per-couple entitlement (either partner's purchase unlocks the couple). The
+// physical table is created/ensured at boot in config/ensureSchema.ts because
+// production deploys never run prisma migrate. Keep the two in sync.
+model Subscription {
+  id                    String    @id @default(cuid())
+  coupleId              String    @unique
+  // 'PRIME' | 'PRIME_PLUS'
+  tier                  String    @default("PRIME")
+  // 'NONE' | 'TRIALING' | 'ACTIVE' | 'GRACE' | 'EXPIRED' | 'CANCELLED'
+  status                String    @default("NONE")
+  // 'ios' | 'android' | 'manual'
+  platform              String?
+  productId             String?
+  // Apple StoreKit: stable id across renewals for the same subscription.
+  originalTransactionId String?   @unique
+  // Google Play purchase token (Android). Unique so a single receipt can never
+  // be replayed to entitle multiple couples (multiple NULLs are allowed).
+  purchaseToken         String?   @unique
+  trialUsed             Boolean   @default(false)
+  trialStartedAt        DateTime?
+  trialEndsAt           DateTime?
+  // Set when the "trial ends tomorrow" nudge was sent, to avoid duplicates.
+  trialEndingNotifiedAt DateTime?
+  currentPeriodEnd      DateTime?
+  autoRenew             Boolean   @default(true)
+  // 'Sandbox' | 'Production' (Apple environment the transaction came from)
+  environment           String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([coupleId])
+  @@map("subscriptions")
+}
+
+enum UserRole {
+  primary
+  partner
+  admin
+}
+
+enum MatchStatus {
+  pending
+  accepted
+  rejected
+  skipped
+}
+
+enum ChatType {
+  private
+  group
+  /// Intra-couple thread ("Just us two"): senderId is the couple's own
+  /// coupleId, matchId/communityId stay null. Deployed via db:push.
+  partner
+}
+
+enum ContentType {
+  text
+  image
+  gif
+  prompt
+  audio
+}
+
+enum NotificationType {
+  match
+  message
+  community
+  system
+  admin
+  nearby
+}
+
+enum ReportStatus {
+  pending
+  reviewed
+  resolved
+  dismissed
+}
+
+enum VerificationStatus {
+  pending
+  verified
+  rejected
+}

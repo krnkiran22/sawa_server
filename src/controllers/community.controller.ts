@@ -1,0 +1,148 @@
+import { Request, Response } from 'express';
+import { z } from 'zod';
+import { communityService } from '../services/community.service';
+import { sendSuccess } from '../utils/response';
+import { validate } from '../middleware/validate';
+import { AppError } from '../utils/AppError';
+
+// ─── Validation ─────────────────────────────────────────────────────────────
+
+const CreateCommunitySchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  description: z.string().optional(),
+  city: z.string().min(1, 'City is required'),
+  coverImageUrl: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  invitedCoupleIds: z.array(z.string()).optional(),
+});
+
+const JoinCommunitySchema = z.object({
+  note: z.string().optional(),
+});
+
+export const validateCreateCommunity = validate(CreateCommunitySchema);
+export const validateJoinCommunity = validate(JoinCommunitySchema);
+
+// ─── Controllers ────────────────────────────────────────────────────────────
+
+export const getAllCommunities = async (req: Request, res: Response): Promise<void> => {
+  const { coupleId } = req.user!;
+  const { city } = req.query;
+  
+  const communities = await communityService.getAllCommunities(coupleId!, city as string);
+  
+  sendSuccess({ res, statusCode: 200, data: { communities } });
+};
+
+export const getMyCommunities = async (req: Request, res: Response): Promise<void> => {
+  const { coupleId } = req.user!;
+  
+  const communities = await communityService.getMyCommunities(coupleId!);
+  
+  sendSuccess({ res, statusCode: 200, data: { communities } });
+};
+
+export const getCommunityDetail = async (req: Request, res: Response): Promise<void> => {
+  const { coupleId } = req.user!;
+  const { id } = req.params;
+
+  const community = await communityService.getCommunityDetail(coupleId!, id);
+
+  sendSuccess({ res, statusCode: 200, data: { community } });
+};
+
+export const createCommunity = async (req: Request, res: Response): Promise<void> => {
+  const { coupleId } = req.user!;
+  const data = req.body;
+
+  const community = await communityService.createCommunity(coupleId!, {
+    name: data.name,
+    description: data.description,
+    city: data.city,
+    coverImageUrl: data.coverImageUrl,
+    tags: data.tags || [],
+    invitedCoupleIds: data.invitedCoupleIds || [],
+  });
+
+  sendSuccess({ 
+    res, 
+    statusCode: 201, 
+    data: { community },
+    message: 'Community created successfully!'
+  });
+};
+
+export const joinCommunity = async (req: Request, res: Response): Promise<void> => {
+  const { coupleId } = req.user!;
+  const { id } = req.params;
+  const data = req.body as z.infer<typeof JoinCommunitySchema>;
+
+  const result = await communityService.joinCommunity(coupleId!, id);
+
+  sendSuccess({ res, statusCode: 200, message: (result as any).status, data: result });
+};
+
+export const leaveCommunity = async (req: Request, res: Response): Promise<void> => {
+  const { coupleId } = req.user!;
+  const { id } = req.params;
+
+  const result = await communityService.leaveCommunity(coupleId!, id);
+
+  sendSuccess({ res, statusCode: 200, message: result.status === 'deleted' ? 'Community deleted as last member left' : 'Left community' });
+};
+
+export const inviteToCommunity = async (req: Request, res: Response): Promise<void> => {
+  const { coupleId } = req.user!;
+  const { id } = req.params; // communityId
+  const { invitedCoupleIds } = req.body;
+
+  const result = await communityService.inviteToCommunity(coupleId!, id, invitedCoupleIds || []);
+
+  sendSuccess({ res, statusCode: 200, data: result, message: 'Invites sent successfully' });
+};
+
+export const updateCommunity = async (req: Request, res: Response): Promise<void> => {
+  const { coupleId } = req.user!;
+  const { id } = req.params;
+  const { name, description, coverImageUrl, coverImageBase64 } = req.body;
+
+  const community = await communityService.updateCommunity(coupleId!, id, {
+    name,
+    description,
+    coverImageUrl,
+    coverImageBase64,
+  });
+
+  sendSuccess({ res, statusCode: 200, data: { community }, message: 'Community updated!' });
+};
+
+export const deleteCommunity = async (req: Request, res: Response): Promise<void> => {
+  const { coupleId } = req.user!;
+  const { id } = req.params;
+
+  await communityService.deleteCommunity(coupleId!, id);
+
+  sendSuccess({ res, statusCode: 200, message: 'Community deleted successfully' });
+};
+
+export const getInviteableCouples = async (req: Request, res: Response): Promise<void> => {
+  const { coupleId } = req.user!;
+  const { id } = req.params;
+
+  const couples = await communityService.getInviteableCouples(coupleId!, id);
+
+  sendSuccess({ res, statusCode: 200, data: { couples } });
+};
+
+export const processJoinRequest = async (req: Request, res: Response): Promise<void> => {
+  const { coupleId } = req.user!;
+  const { id, requestId, decision } = req.params;
+
+  if (decision !== 'accept' && decision !== 'reject') {
+    throw new AppError('Invalid decision', 400);
+  }
+
+  const result = await communityService.processJoinRequest(coupleId!, id, requestId, decision);
+
+  sendSuccess({ res, statusCode: 200, message: result.message });
+};
