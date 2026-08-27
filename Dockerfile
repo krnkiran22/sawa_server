@@ -24,7 +24,8 @@ RUN npx tsc
 # ---- runtime: production deps only ----
 FROM node:22-slim AS runtime
 WORKDIR /app
-RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends openssl \
+# procps: pm2 shells out to `ps` (absent on slim images).
+RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends openssl procps \
   && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
 COPY package.json package-lock.json ./
