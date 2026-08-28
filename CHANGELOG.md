@@ -4,6 +4,14 @@
 
 ---
 
+## [2026-08-29] — City nudges: new circles announce themselves (in-app + push + WhatsApp)
+
+**Why (team call):** "WhatsApp nudges for new joins and events." New-join nudges already ride
+the full pipeline (notifyNearbyCouples → push → WhatsApp mirror). Events have no system yet —
+circles are today's events container — so creating a circle now announces to every complete
+couple in its city (creator excluded, cap 200, `nearby.community` key ×4 locales, communityId
+in data so the tap opens the circle). Fire-and-forget. Gates: tsc clean, jest 85/85.
+
 ## [2026-08-28] — Partner invite on WhatsApp + profiles stay under review until both partners join
 
 **Why (team call):** 90% of profiles have one active partner. The partner now gets pinged on
