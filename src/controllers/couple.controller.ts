@@ -72,13 +72,17 @@ const optionalAdultDob = z
     { message: 'You must be 18 or older to use Sawa' },
   );
 
+const genderValue = z.enum(['woman', 'man', 'nonbinary', 'prefer_not_to_say']).optional().or(z.literal(''));
+
 const SetupProfileSchema = z.object({
   yourName: z.string().min(1, 'Your name is required'),
   yourEmail: z.string().optional().or(z.literal('')),
   yourDob: optionalAdultDob,
+  yourGender: genderValue,
   partnerName: z.string().min(1, "Partner's name is required"),
   partnerEmail: z.string().optional().or(z.literal('')),
   partnerDob: optionalAdultDob,
+  partnerGender: genderValue,
   relationshipStatus: z.string().optional(),
   location: z.object({
     city: z.string().optional(),
@@ -111,9 +115,11 @@ const CompleteOnboardingSchema = z.object({
   yourName: z.string().min(1).optional().or(z.literal('')),
   yourEmail: z.string().optional().or(z.literal('')),
   yourDob: optionalAdultDob,
+  yourGender: genderValue,
   partnerName: z.string().min(1).optional().or(z.literal('')),
   partnerEmail: z.string().optional().or(z.literal('')),
   partnerDob: optionalAdultDob,
+  partnerGender: genderValue,
   relationshipStatus: z.string().optional(),
   primaryPhotoBase64: z.string().optional(),
   secondaryPhotosBase64: z.array(z.string()).max(3).optional(),
@@ -139,9 +145,11 @@ const UpdateMyCoupleSchema = z.object({
   yourName: z.string().optional(),
   yourDob: z.string().optional(),
   yourEmail: z.string().optional(),
+  yourGender: genderValue,
   partnerName: z.string().optional(),
   partnerDob: z.string().optional(),
   partnerEmail: z.string().optional(),
+  partnerGender: genderValue,
   location: z
     .object({
       city: z.string().optional(),
@@ -338,6 +346,17 @@ export const completeOnboarding = async (req: Request, res: Response) => {
   const hasCity = !!stored?.locationCity && stored.locationCity !== 'Unknown';
   if (!hasCity) {
     logger.warn(`[CoupleController] completeOnboarding for ${coupleId}: no city stored (legacy build?)`);
+  }
+
+  // Gender follows the same fleet contract as city: the current app makes it
+  // mandatory client-side; here it stays warn-only until the fleet floor
+  // rises past the gender-collecting build. Same strict-flip note as above.
+  const partners = await prisma.user.findMany({
+    where: { coupleId: coupleId! },
+    select: { gender: true },
+  });
+  if (partners.some((p) => !p.gender)) {
+    logger.warn(`[CoupleController] completeOnboarding for ${coupleId}: gender missing for a partner (legacy build?)`);
   }
 
   // 4. The ONE writer of isProfileComplete (also announces to the city).

@@ -13,6 +13,9 @@ model User {
   name             String?
   email            String?   @unique
   dob              String?
+  // Inclusive, optional at the API layer (old builds don't send it); the
+  // current app makes it mandatory. Values: woman|man|nonbinary|prefer_not_to_say.
+  gender           String?
   coupleId         String?
   isPhoneVerified  Boolean   @default(false)
   refreshTokenHash String?

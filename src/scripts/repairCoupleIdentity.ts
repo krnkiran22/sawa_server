@@ -153,10 +153,24 @@ async function main(): Promise<void> {
     }
   }
 
+  // ── 6. The 'Unknown' city sentinel → NULL. Old builds never sent a city and
+  // the old server default stored the literal word, which then rendered
+  // verbatim on discovery cards while admin special-cased it away. ──
+  const sentinelRows = await prisma.couple.count({ where: { locationCity: 'Unknown' } });
+  if (sentinelRows > 0) {
+    console.log(`${tag} city sentinel: ${sentinelRows} couple(s) hold locationCity='Unknown' → null`);
+    if (APPLY) {
+      await prisma.couple.updateMany({
+        where: { locationCity: 'Unknown' },
+        data: { locationCity: null },
+      });
+    }
+  }
+
   console.log(
     `${tag} done — repointed=${repointed} backfilled=${backfilled} ` +
       `ghost-couples=${grouped.length} orphans=${orphans}${APPLY && PURGE_ORPHANS ? ' (purged)' : ''} ` +
-      `phones-normalized=${normalized}`,
+      `phones-normalized=${normalized} city-sentinels=${sentinelRows}`,
   );
 }
 

@@ -183,7 +183,9 @@ export class MatchService {
         coupleId: c.coupleId,
         profileName: c.profileName,
         primaryPhoto: c.primaryPhoto || 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=400&q=80',
-        location: c.locationCity || 'Unknown',
+        // Legacy rows may still hold the literal 'Unknown' sentinel (old
+        // builds + the old server default). Send null; the app localizes it.
+        location: c.locationCity && c.locationCity !== 'Unknown' ? c.locationCity : null,
         bio: c.bio || undefined,
         matchCriteria: c.matchCriteria || undefined,
         relationshipStatus: c.relationshipStatus || undefined,

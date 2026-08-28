@@ -4,6 +4,25 @@
 
 ---
 
+## [2026-08-28] — Inclusive gender field + the 'Unknown' city sentinel killed
+
+**Why (team call):** gender + location are becoming mandatory profile facts, and discovery
+cards showed the literal word "Unknown" while the admin panel showed a real city — because
+profile creation STORED the sentinel string `'Unknown'` when no city arrived (old builds),
+admin special-cased it away, and the card formatter passed it through verbatim.
+
+**What:**
+- `User.gender` (String?, values woman|man|nonbinary|prefer_not_to_say) — accepted as
+  `yourGender`/`partnerGender` on both onboarding endpoints, written in the same
+  transaction blocks as name/dob/email. API-optional (old builds don't send it; the new
+  app enforces it client-side); completeOnboarding warns when a partner lacks it, same
+  fleet contract and strict-flip note as city.
+- Sentinel: setupProfile stores `null` (never 'Unknown'); the discovery formatter
+  sanitizes legacy rows to `null`; `repairCoupleIdentity` gained phase 6 nulling stored
+  sentinels (dry-run counts, `--apply` writes).
+
+Gates: tsc clean, jest 85/85.
+
 ## [2026-08-28] — Sentry error monitoring, DSN-optional (Arfam ask, in-house move)
 
 **Why:** the platform had zero error observability (a logged launch blocker), and the AWS

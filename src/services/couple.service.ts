@@ -19,9 +19,11 @@ export class CoupleService {
       yourName: string;
       yourDob?: string;
       yourEmail?: string;
+      yourGender?: string;
       partnerName: string;
       partnerDob?: string;
       partnerEmail?: string;
+      partnerGender?: string;
       relationshipStatus?: string;
       location?: { city?: string; country?: string };
     }
@@ -79,6 +81,7 @@ export class CoupleService {
           name: data.yourName,
           dob: data.yourDob || undefined,
           email: canUseYourEmail ? data.yourEmail : undefined,
+          gender: data.yourGender || undefined,
           role: callerRole,
         }
       });
@@ -101,6 +104,7 @@ export class CoupleService {
                   name: data.partnerName,
                   dob: data.partnerDob || undefined,
                   email: canUsePartnerEmail ? data.partnerEmail : undefined,
+                  gender: data.partnerGender || undefined,
               }
           });
       } else if (data.partnerName) {
@@ -115,6 +119,7 @@ export class CoupleService {
                   name: data.partnerName,
                   dob: data.partnerDob || undefined,
                   email: canUsePartnerEmail ? data.partnerEmail : undefined,
+                  gender: data.partnerGender || undefined,
                   role: callerRole === 'primary' ? 'partner' : 'primary',
                   coupleId: coupleId
               }
@@ -147,7 +152,9 @@ export class CoupleService {
             partner2Id,
             profileName: `${primaryName} & ${secondaryName}`,
             relationshipStatus: data.relationshipStatus,
-            locationCity: data.location?.city || 'Unknown',
+            // Never store the 'Unknown' sentinel: it leaked onto discovery
+            // cards verbatim while admin special-cased it away (2026-08-28 fix).
+            locationCity: data.location?.city || null,
             locationCountry: data.location?.country || 'India',
             isProfileComplete: false,
           }
