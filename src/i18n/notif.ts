@@ -121,6 +121,15 @@ const T: Record<string, Entry> = {
       mr: '{name} आत्ताच {city} मध्ये SAWA ला सामील झाले. हाय म्हणा!',
     },
   },
+  'nearby.community': {
+    title: { en: 'A new circle in {city}', hi: '{city} में नया सर्कल', kn: '{city} ನಲ್ಲಿ ಹೊಸ ವಲಯ', mr: '{city} मध्ये नवीन सर्कल' },
+    body: {
+      en: '{community} just started. Take a look!',
+      hi: '{community} अभी शुरू हुआ है। देख लीजिए।',
+      kn: '{community} ಈಗ ಶುರುವಾಗಿದೆ. ನೋಡಿ ಬನ್ನಿ.',
+      mr: '{community} नुकतेच सुरू झाले. बघून या.',
+    },
+  },
 
   // ── Chat ───────────────────────────────────────────────────────────────────
   'chat.private': {

@@ -175,6 +175,65 @@ export class CommunityService {
     });
   }
 
+  /** Announce a newly created circle to every complete couple in its city
+   *  (creator excluded). Mirrors notifyNearbyCouples' shape; type 'community'
+   *  + communityId in data so the app's tap router opens the circle. */
+  private async notifyCityAboutCommunity(
+    communityId: string,
+    communityName: string,
+    city: string,
+    creatorCoupleId: string,
+  ): Promise<void> {
+    if (!city) return;
+    const locals = await prisma.couple.findMany({
+      where: {
+        coupleId: { not: creatorCoupleId },
+        locationCity: city,
+        isProfileComplete: true,
+        bannedAt: null,
+      },
+      select: { coupleId: true },
+      take: 200,
+    });
+    if (locals.length === 0) return;
+
+    const title = `A new circle in ${city}`;
+    const message = `${communityName} just started. Take a look!`;
+    const notifData = {
+      communityId,
+      name: communityName,
+      communityName,
+      city,
+      ...i18nData('nearby.community', { city, community: communityName }),
+    };
+
+    await Promise.all(
+      locals.map(async (c) => {
+        const notif = await prisma.notification.create({
+          data: {
+            recipientId: c.coupleId,
+            senderId: creatorCoupleId,
+            type: 'community',
+            title,
+            message,
+            data: notifData,
+          },
+        });
+        emitRealtimeNotification(c.coupleId, {
+          notificationId: notif.id,
+          type: 'community',
+          title,
+          message,
+          data: notifData,
+        });
+      }),
+    );
+
+    logger.info(
+      `[CommunityService] Announced circle ${communityId} to ${locals.length} couple(s) in ${city}`,
+    );
+  }
+
   async createCommunity(requestingCoupleId: string, data: any) {
     const me = await prisma.couple.findUnique({
       where: { coupleId: requestingCoupleId },
@@ -199,6 +258,15 @@ export class CommunityService {
         members: { create: { coupleId: me.coupleId } }
       }
     });
+
+    // City nudge (team call 2026-08-28: nudges for new joins and events —
+    // circles are today's events container): every complete couple in the
+    // city hears a new circle opened. Standard pipeline, so FCM push and the
+    // WhatsApp mirror ride free. Fire-and-forget: announce failures must
+    // never fail creation.
+    this.notifyCityAboutCommunity(community.id, community.name, data.city, me.coupleId).catch(
+      (err: any) => logger.warn(`[CommunityService] city announce failed: ${err?.message}`),
+    );
 
     if (data.invitedCoupleIds && data.invitedCoupleIds.length > 0) {
       // Process all invites in parallel instead of serially.
