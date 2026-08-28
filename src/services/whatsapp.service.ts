@@ -181,3 +181,14 @@ export const mirrorToWhatsAppUser = async (
     logger.warn(`[WhatsApp] mirrorToWhatsAppUser(${userId}) failed: ${err?.message ?? err}`);
   }
 };
+
+/**
+ * One-off proactive WhatsApp to a phone that may not be a user yet (the
+ * partner invite). Rides the same template mechanics as the notification
+ * mirror: with an approved content template the text travels as {{1}};
+ * without one it only delivers in the sandbox / an open 24h session.
+ * Fire-and-forget; never throws.
+ */
+export function sendWhatsAppDirect(phone: string, text: string): void {
+  void sendOne(phone, { title: '', body: text }, 'en');
+}

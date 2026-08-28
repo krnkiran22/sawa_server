@@ -9,6 +9,7 @@ import { AppError } from '../utils/AppError';
 import { prisma } from '../lib/prisma';
 import { logger } from '../utils/logger';
 import { TokenPair } from '../types/index';
+import { sendWhatsAppDirect } from './whatsapp.service';
 import { logAuthEvent } from '../utils/authEvents';
 import { env } from '../config/env';
 
@@ -582,8 +583,14 @@ export class AuthService {
     // to Play Store or App Store accordingly. Falls back to sawa.living if no APP_URL.
     const appUrl = (env.APP_URL || 'https://sawa.living').replace(/\/$/, '');
     const inviteLink = `${appUrl}/app`;
-    const msg = `Hi! Your partner has invited you to join them on SAWA — the app for couples. Download here: ${inviteLink}`;
-    return otpService.sendInvitation(partnerPhone, msg, ip);
+    // Team-call copy (2026-08-28). The WhatsApp copy rides ONLY when the SMS
+    // abuse guard allowed the send, so both channels stay behind one budget.
+    const msg = `Your partner has joined Sawa and is waiting for you. Download the app: ${inviteLink}`;
+    const sent = await otpService.sendInvitation(partnerPhone, msg, ip);
+    if (sent) {
+      sendWhatsAppDirect(partnerPhone, msg);
+    }
+    return sent;
   }
 }
 

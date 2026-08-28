@@ -226,6 +226,10 @@ export class AdminService {
         verificationStatus: c.verificationStatus,
         rejectionReason: c.rejectionReason,
         verifiedAt: c.verifiedAt,
+        // Under-review wiring (team call 2026-08-28): approval is gated on
+        // BOTH partners having opened Sawa at least once (lastActiveAt set by
+        // the auth middleware on any authenticated request).
+        bothPartnersActive: memberUsers.length >= 2 && memberUsers.every((u: any) => !!u.lastActiveAt),
         rejectedAt: c.rejectedAt,
         bio: c.bio,
         primaryPhoto: imageRef('couple', c.coupleId, c.primaryPhoto, token),
@@ -762,6 +766,21 @@ export class AdminService {
    * notification + push, and the discovery badge flips to "Verified couple".
    */
   async approveCouple(coupleId: string) {
+    // A profile stays under review until BOTH partners have actually opened
+    // Sawa (team call 2026-08-28). The partner was invited by SMS + WhatsApp
+    // at profile completion; approval waits for their first login.
+    const members = await prisma.user.findMany({
+      where: { coupleId },
+      select: { lastActiveAt: true },
+    });
+    const bothActive = members.length >= 2 && members.every((m) => !!m.lastActiveAt);
+    if (!bothActive) {
+      throw Object.assign(
+        new Error('Both partners must open Sawa before the profile can be verified. The partner has been invited by SMS and WhatsApp.'),
+        { code: 'PARTNER_NOT_JOINED', status: 409 },
+      );
+    }
+
     const couple = await prisma.couple.update({
       where: { coupleId },
       data: {

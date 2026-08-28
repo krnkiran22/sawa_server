@@ -4,6 +4,26 @@
 
 ---
 
+## [2026-08-28] — Partner invite on WhatsApp + profiles stay under review until both partners join
+
+**Why (team call):** 90% of profiles have one active partner. The partner now gets pinged on
+BOTH channels, and verification cannot complete until they actually show up.
+
+**What:**
+- `whatsapp.service.sendWhatsAppDirect(phone, text)` — one-off proactive send to a phone
+  that may not be a user yet, riding the existing approved-template mechanics.
+- `sendPartnerInvite`: copy updated to the team's line ("Your partner has joined Sawa and
+  is waiting for you. Download the app: {link}"); the WhatsApp copy rides ONLY when the SMS
+  abuse guard allowed the send, so both channels sit behind one spend budget.
+- `completeOnboarding`: after `markProfileComplete`, the partner who has NEVER opened Sawa
+  (`lastActiveAt` null — set by the auth middleware on any authenticated request) gets the
+  invite automatically, fire-and-forget.
+- `approveCouple` is now gated: 409 `PARTNER_NOT_JOINED` until BOTH partners have
+  `lastActiveAt`; the admin couples payload carries `bothPartnersActive` so the panel can
+  show "Waiting for partner" instead of a bare "Pending".
+
+Gates: tsc clean, jest 85/85.
+
 ## [2026-08-28] — Inclusive gender field + the 'Unknown' city sentinel killed
 
 **Why (team call):** gender + location are becoming mandatory profile facts, and discovery

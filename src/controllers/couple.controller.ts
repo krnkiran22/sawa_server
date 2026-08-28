@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import { coupleService } from '../services/couple.service';
+import { authService } from '../services/auth.service';
 import { prisma } from '../lib/prisma';
 import { sendSuccess } from '../utils/response';
 import { validate } from '../middleware/validate';
@@ -362,6 +363,23 @@ export const completeOnboarding = async (req: Request, res: Response) => {
   // 4. The ONE writer of isProfileComplete (also announces to the city).
   await coupleService.markProfileComplete(coupleId!);
   await invalidateCoupleProfile(coupleId!);
+
+  // 5. Under-review wiring (team call): the profile stays pending until BOTH
+  // partners have actually opened Sawa. Ping the partner who never has —
+  // SMS + WhatsApp through the same abuse-guarded invite path. Fire-and-forget:
+  // a messaging failure must never fail onboarding completion.
+  try {
+    const neverActive = await prisma.user.findFirst({
+      where: { coupleId: coupleId!, id: { not: req.user!.userId }, lastActiveAt: null, phone: { not: null } },
+      select: { phone: true },
+    });
+    if (neverActive?.phone) {
+      void authService.sendPartnerInvite(neverActive.phone, req.ip).catch(() => {});
+      logger.info(`[CoupleController] partner invite queued for couple ${coupleId} (partner not active yet)`);
+    }
+  } catch (err) {
+    logger.warn(`[CoupleController] partner-invite check failed for ${coupleId}: ${(err as Error).message}`);
+  }
 
   // 5. Fetch the final profile to return to the client.
   const couple = await coupleService.getCouple(coupleId!);

@@ -281,6 +281,9 @@ export class AdminController {
       const couple = await adminService.approveCouple(id);
       sendSuccess({ res, data: couple });
     } catch (err: any) {
+      if (err?.code === 'PARTNER_NOT_JOINED') {
+        return adminError(res, err.message, 409, 'PARTNER_NOT_JOINED');
+      }
       failInternal(res, req.path, err);
     }
   }
