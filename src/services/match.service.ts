@@ -10,6 +10,7 @@ import {
 } from './notification.service';
 import { distanceLabelBetween } from '../utils/geo';
 import { evaluateMatch, Q3_TITLES } from './matchScore';
+import type { DiscoveryCard } from '../contracts';
 
 const COUPLE_GEO_SELECT = {
   locationCity: true,
@@ -165,7 +166,7 @@ export class MatchService {
       },
     });
 
-    return potentialCouples.map((c: any) => {
+    return potentialCouples.map((c: any): DiscoveryCard => {
       const q3Answer = c.answers?.find((a: any) => a.questionId === 'q3');
       const tags: string[] = q3Answer
         ? (q3Answer.selectedOptionIds as string[])
