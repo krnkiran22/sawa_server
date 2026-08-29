@@ -7,6 +7,7 @@ import { env } from './config/env';
 import { Sentry, sentryEnabled } from './lib/sentry';
 import { errorHandler } from './middleware/errorHandler';
 import apiRouter from './routes/index';
+import { appVersionGate } from './middleware/appVersionGate';
 
 // ─── Deep-Link / Store Configuration ──────────────────────────────────────────
 // These identifiers power the /share/* redirect pages and the App Links /
@@ -576,7 +577,9 @@ export const createApp = (): Application => {
   });
 
   // ─── API Routes ──────────────────────────────────────────────────────────────
-  app.use('/api/v1', apiRouter);
+  // Force-update gate: header-carrying app builds below the configured floor
+  // get 426 before touching any route. Admin/web (no headers) pass through.
+  app.use('/api/v1', appVersionGate, apiRouter);
 
   // ─── 404 Catch-all ───────────────────────────────────────────────────────────
   app.use((_req: Request, res: Response) => {

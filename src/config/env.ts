@@ -56,6 +56,14 @@ const envSchema = z.object({
   RENDER_EXTERNAL_URL: z.string().optional(),
   APP_URL: z.string().optional(),
   RAILWAY_PUBLIC_DOMAIN: z.string().optional(),
+  // ─── Force-update contract (middleware/appVersionGate.ts) ────────────────
+  // 0 = gate off. Raise to the minimum allowed build (versionCode / iOS build
+  // number) to force older apps to update. Headers opt in; admin/web unaffected.
+  MIN_APP_BUILD_ANDROID: z.string().default('0').transform(Number),
+  MIN_APP_BUILD_IOS: z.string().default('0').transform(Number),
+  // Where the 426 sends users; defaults to APP_URL + /app (store redirect).
+  APP_UPDATE_URL: z.string().optional(),
+
   // Comma-separated phone numbers (with country code, e.g. 916369758396,917305410425)
   // that can log in without OTP for testing / demo purposes.
   BYPASS_PHONES: z.string().optional(),
