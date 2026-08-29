@@ -4,6 +4,23 @@
 
 ---
 
+## [2026-08-29] — OTP outage fix: empty env strings no longer mean zero
+
+**Why:** the whole team (and Arfam) got "Too many messages requested" on every OTP attempt.
+Root cause: the AWS secret must carry every declared key, so the three unused SMS-guard caps
+sat there as `''` — zod's `.default()` only fires on `undefined`, and `Number('') === 0`, so
+`SMS_PREFIX_DAILY_CAP`/`SMS_IP_DAILY_CAP`/`SMS_DAILY_GLOBAL_CAP` all ran as **0** and the
+prefix layer refused every send before Twilio was ever called (Sentry: prefix trip
+`kind=precheck` on the first office attempt — impossible under a real cap of 30).
+
+**What:** `src/config/env.ts` strips empty-string values from `process.env` before parsing,
+so `''` always falls back to the schema default; pinned by
+`src/__tests__/env.emptyString.test.ts`. Ops side (no code): secrets now carry real values —
+prod+staging `SMS_PREFIX_DAILY_CAP=200`, `SMS_IP_DAILY_CAP=100`, `SMS_DAILY_GLOBAL_CAP=2000`,
+and `SMS_PHONE_DAILY_CAP=100` for the testing period (burned retry counters would otherwise
+block the team until the UTC day rolls at 05:30 IST); both services force-redeployed.
+Gates: tsc clean, jest 87/87.
+
 ## [2026-08-29] — City nudges: new circles announce themselves (in-app + push + WhatsApp)
 
 **Why (team call):** "WhatsApp nudges for new joins and events." New-join nudges already ride

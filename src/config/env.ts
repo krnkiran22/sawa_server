@@ -181,7 +181,15 @@ const envSchema = z.object({
   GOOGLE_RTDN_SECRET: z.string().optional(),
 });
 
-const _parsed = envSchema.safeParse(process.env);
+/**
+ * Empty string means UNSET. The AWS secret must carry every declared key, so
+ * unused settings arrive as '' — but zod's .default() only fires on undefined,
+ * and Number('') === 0, which turned the SMS-guard caps into a total OTP
+ * outage (2026-08-29). Strip empties so '' always falls back to the default.
+ */
+const rawEnv = Object.fromEntries(Object.entries(process.env).filter(([, v]) => v !== ''));
+
+const _parsed = envSchema.safeParse(rawEnv);
 
 if (!_parsed.success) {
   console.error('❌  Invalid environment variables:');
