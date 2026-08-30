@@ -4,6 +4,26 @@
 
 ---
 
+## [2026-08-30] — Chat fluency support: typing relays hardened, image message dimensions
+
+**Why (team feedback, "design the chat like WhatsApp"):** the app is gaining typing
+presence and photo messages on every chat surface; the server side was mostly there
+already and needed three finishing cuts.
+
+**What:**
+- `chat.socket.ts`: typing relays now carry `senderUserId` (a four-voice thread names
+  WHICH partner is typing) and are guarded by room membership — `socket.to()` alone
+  relayed for any chatId, letting a client broadcast typing into rooms it never joined
+  (same IDOR class the join/message handlers already close, at zero DB cost).
+- `us.socket.ts` + constants: `us:chat:typing` / `us:chat:stopTyping` relay for the
+  partner thread (couple room, `.except(sender)`, relay-only — no persistence, no push).
+- `Message.mediaWidth/mediaHeight` (schema + socket passthrough, client-bounded to sane
+  pixels): image bubbles reserve their aspect ratio before the bytes arrive. The image
+  upload path itself (presigned PUT, `kind:'image'`, allowlist + size caps) already
+  existed — no changes needed there.
+
+Gates: tsc clean, jest 87/87, contracts in sync. Schema self-applies on deploy.
+
 ## [2026-08-29] — OTP outage fix: empty env strings no longer mean zero
 
 **Why:** the whole team (and Arfam) got "Too many messages requested" on every OTP attempt.

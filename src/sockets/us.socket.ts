@@ -635,6 +635,22 @@ export const registerUsHandlers = (io: SocketIOServer, socket: Socket): void => 
     },
   );
 
+  // ── us:chat:typing — ephemeral typing presence in the partner thread ──────
+  // Relay-only (no persistence, no push). The couple room holds only the
+  // couple's own authenticated devices, so `.except(socket.id)` IS the guard;
+  // userId travels so the receiving device can drop its own user's echoes
+  // (both partners logged in on one shared device is a real Sawa scenario).
+  socket.on(SOCKET_EVENTS.US_CHAT_TYPING, () => {
+    if (!userId || !coupleId) return;
+    io.to(`couple:${coupleId}`).except(socket.id).emit(SOCKET_EVENTS.US_CHAT_TYPING, { userId });
+  });
+  socket.on(SOCKET_EVENTS.US_CHAT_STOP_TYPING, () => {
+    if (!userId || !coupleId) return;
+    io.to(`couple:${coupleId}`)
+      .except(socket.id)
+      .emit(SOCKET_EVENTS.US_CHAT_STOP_TYPING, { userId });
+  });
+
   // ── us:chat:send — the partner thread ("Just us two") ─────────────────────
   // Intra-couple messages, stored as Message rows with chatType='partner' and
   // senderId = the couple's own coupleId (no match, no community — the couple

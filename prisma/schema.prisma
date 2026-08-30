@@ -233,6 +233,10 @@ model Message {
   content              String
   contentType          ContentType @default(text)
   audioDuration        Int?
+  // Intrinsic pixel size of image messages — lets the client reserve the
+  // bubble's aspect ratio before the bytes arrive (no layout jump).
+  mediaWidth           Int?
+  mediaHeight          Int?
   repliedToId          String?
   repliedToText        String?
   repliedToName        String?

@@ -30,6 +30,9 @@ export const SOCKET_EVENTS = {
   US_CHAT_SEND: 'us:chat:send',
   US_CHAT_MESSAGE: 'us:chat:message',
   US_CHAT_FAILED: 'us:chat:failed',
+  // Ephemeral typing presence in the partner thread — relayed, never stored.
+  US_CHAT_TYPING: 'us:chat:typing',
+  US_CHAT_STOP_TYPING: 'us:chat:stopTyping',
 
   // Couple games (src/sockets/us.socket.ts). LEAVE is the soft exit — board
   // closed, session kept for resume; QUIT is the hard exit — session cleared.

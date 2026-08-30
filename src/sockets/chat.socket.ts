@@ -50,6 +50,8 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
       contentType: string;
       chatType?: 'private' | 'group';
       audioDuration?: number;
+      mediaWidth?: number;
+      mediaHeight?: number;
       senderName?: string;
       senderIndividualName?: string;
       repliedToId?: string;
@@ -78,6 +80,13 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
         }
         const timestamp = new Date().toISOString();
         const clientMessageId = data.clientMessageId || `srv-${Date.now()}`;
+        // Image-bubble aspect hints — client-supplied, so bound to sane pixels.
+        const asDim = (v: unknown): number | null => {
+          const n = Number(v);
+          return Number.isFinite(n) && n > 0 ? Math.min(Math.round(n), 10_000) : null;
+        };
+        const mediaWidth = asDim(data.mediaWidth);
+        const mediaHeight = asDim(data.mediaHeight);
 
         // ── Idempotency on clientMessageId ────────────────────────────────────
         // socket.io-client BUFFERS emits made while disconnected and replays all
@@ -115,6 +124,8 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
                   content: existing.content,
                   contentType: existing.contentType,
                   audioDuration: existing.audioDuration,
+                  mediaWidth: existing.mediaWidth,
+                  mediaHeight: existing.mediaHeight,
                   timestamp: existing.createdAt.toISOString(),
                   repliedToId: existing.repliedToId,
                   repliedToText: existing.repliedToText,
@@ -159,6 +170,8 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
               content: data.content,
               contentType: (data.contentType || 'text') as any,
               audioDuration: data.audioDuration,
+              mediaWidth,
+              mediaHeight,
               repliedToId: data.repliedToId,
               repliedToText: data.repliedToText,
               repliedToName: data.repliedToName,
@@ -203,6 +216,8 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
           content: data.content,
           contentType: data.contentType ?? 'text',
           audioDuration: data.audioDuration,
+          mediaWidth,
+          mediaHeight,
           timestamp,
           repliedToId: data.repliedToId,
           repliedToText: data.repliedToText,
@@ -366,18 +381,27 @@ export const registerChatHandlers = (io: SocketIOServer, socket: Socket): void =
     }
   });
 
-  socket.on(SOCKET_EVENTS.CHAT_TYPING, (data: { chatId: string }) => {
+  // Typing is ephemeral presence — relayed, never persisted. senderUserId lets
+  // clients name WHICH partner of a couple is typing (a four-voice thread).
+  // Guard: only relay for rooms this socket actually sits in — membership is
+  // only obtainable through the authorized CHAT_JOIN above, so this is the
+  // IDOR check at zero DB cost (socket.to() alone would relay for any chatId).
+  socket.on(SOCKET_EVENTS.CHAT_TYPING, (data: { chatId: string; senderName?: string }) => {
+    if (!socket.rooms.has(`chat:${data.chatId}`)) return;
     socket.to(`chat:${data.chatId}`).emit(SOCKET_EVENTS.CHAT_TYPING, {
       chatId: data.chatId,
       senderCoupleId: socket.coupleId,
-      senderName: socket.userName,
+      senderUserId: socket.userId,
+      senderName: data.senderName || socket.userName,
     });
   });
 
   socket.on(SOCKET_EVENTS.CHAT_STOP_TYPING, (data: { chatId: string }) => {
+    if (!socket.rooms.has(`chat:${data.chatId}`)) return;
     socket.to(`chat:${data.chatId}`).emit(SOCKET_EVENTS.CHAT_STOP_TYPING, {
       chatId: data.chatId,
       senderCoupleId: socket.coupleId,
+      senderUserId: socket.userId,
     });
   });
 };
