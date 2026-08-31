@@ -4,6 +4,17 @@
 
 ---
 
+## [2026-08-31] — Partner thread accepts photo messages
+
+**Why:** the chat UI cycle gives every surface the WhatsApp-grammar composer ("+" sheet with
+photos/camera); the partner thread's `us:chat:send` whitelisted text/prompt/audio only.
+
+**What:** `us.socket.ts` accepts `contentType:'image'` when the content is the public
+`/img/image/` proxy URL our presigned upload produces (nothing else passes as an image),
+persists + relays `mediaWidth/mediaHeight` (client-bounded), and the offline-partner push
+body reads "📷 Photo". `us.service.ts` `listPartnerMessages` returns the dimensions.
+Gates: tsc clean, jest 87/87.
+
 ## [2026-08-30] — Chat fluency support: typing relays hardened, image message dimensions
 
 **Why (team feedback, "design the chat like WhatsApp"):** the app is gaining typing

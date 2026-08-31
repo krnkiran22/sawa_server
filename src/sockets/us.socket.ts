@@ -656,13 +656,17 @@ export const registerUsHandlers = (io: SocketIOServer, socket: Socket): void => 
   // senderId = the couple's own coupleId (no match, no community — the couple
   // IS the room). Room-wide emit doubles as the sender's delivery ack.
   // Idempotent per clientMessageId (reconnect replays re-emit the saved id).
-  socket.on(SOCKET_EVENTS.US_CHAT_SEND, async (payload: { clientMessageId?: string; text?: string; contentType?: string; audioDuration?: number }) => {
+  socket.on(SOCKET_EVENTS.US_CHAT_SEND, async (payload: { clientMessageId?: string; text?: string; contentType?: string; audioDuration?: number; mediaWidth?: number; mediaHeight?: number }) => {
     if (!userId || !coupleId) return;
     const text = (payload?.text ?? '').trim();
     // Voice notes ride the same pipe: content is an s3 ref (or a small inline
     // data URI from the no-network fallback); plain text keeps its 1000 cap.
-    const contentType: 'text' | 'prompt' | 'audio' =
-      payload?.contentType === 'audio' || payload?.contentType === 'prompt'
+    // Photos: content is the public `/img/image/` proxy URL the presigned
+    // upload path produced — nothing else is accepted as an image.
+    const contentType: 'text' | 'prompt' | 'audio' | 'image' =
+      payload?.contentType === 'audio' ||
+      payload?.contentType === 'prompt' ||
+      payload?.contentType === 'image'
         ? payload.contentType
         : 'text';
     if (
@@ -671,12 +675,21 @@ export const registerUsHandlers = (io: SocketIOServer, socket: Socket): void => 
     ) {
       return;
     }
+    if (contentType === 'image' && !(text.startsWith('https://') && text.includes('/img/image/'))) {
+      return;
+    }
     const maxLen = contentType === 'audio' ? 1_500_000 : 1000;
     if (!text || text.length > maxLen) return;
     const audioDuration =
       contentType === 'audio' && Number.isFinite(Number(payload?.audioDuration))
         ? Math.max(0, Math.round(Number(payload?.audioDuration)))
         : null;
+    const asDim = (v: unknown): number | null => {
+      const n = Number(v);
+      return Number.isFinite(n) && n > 0 ? Math.min(Math.round(n), 10_000) : null;
+    };
+    const mediaWidth = contentType === 'image' ? asDim(payload?.mediaWidth) : null;
+    const mediaHeight = contentType === 'image' ? asDim(payload?.mediaHeight) : null;
     const clientMessageId =
       typeof payload?.clientMessageId === 'string' && payload.clientMessageId
         ? payload.clientMessageId.slice(0, 64)
@@ -715,6 +728,8 @@ export const registerUsHandlers = (io: SocketIOServer, socket: Socket): void => 
           content: text,
           contentType,
           audioDuration,
+          mediaWidth,
+          mediaHeight,
         },
         select: { id: true, createdAt: true },
       });
@@ -735,6 +750,8 @@ export const registerUsHandlers = (io: SocketIOServer, socket: Socket): void => 
       text,
       contentType,
       audioDuration,
+      mediaWidth,
+      mediaHeight,
       createdAt: saved.createdAt.toISOString(),
     });
 
@@ -751,6 +768,8 @@ export const registerUsHandlers = (io: SocketIOServer, socket: Socket): void => 
             body:
               contentType === 'audio'
                 ? renderNotif('en', 'us.chat.voice', { name: senderName }).body
+                : contentType === 'image'
+                ? '📷 Photo'
                 : text.length > 120
                 ? `${text.slice(0, 117)}…`
                 : text,
