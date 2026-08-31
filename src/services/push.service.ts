@@ -3,7 +3,7 @@ import { prisma } from '../lib/prisma';
 import { Prisma } from '@prisma/client';
 import { logger } from '../utils/logger';
 import { renderNotif, hasNotifKey, NotifParams } from '../i18n/notif';
-import { mirrorToWhatsAppCouple, mirrorToWhatsAppUser } from './whatsapp.service';
+import { recordPushEvent } from './nudge/nudge.events';
 
 /**
  * The recipient's real unread count for the iOS APNs badge. Mirrors the
@@ -211,9 +211,10 @@ export const pushToCouple = async (
   coupleId: string,
   payload: PushPayload,
 ): Promise<{ sent: number; failed: number }> => {
-  // Mirror to WhatsApp for BOTH partners (fire-and-forget, independent of FCM so
-  // it still works when push is disabled or a device has no token).
-  void mirrorToWhatsAppCouple(coupleId, payload);
+  // Nudge Layer bridge (2026-08-31): the push payload IS the domain event.
+  // Outbox write only; the worker decides channel, consent and timing. The
+  // old 1:1 WhatsApp mirror that lived here was retired with it.
+  recordPushEvent({ kind: 'couple', coupleId }, payload);
 
   if (!enabled) {
     logDisabledSkip(String(payload.data?.type ?? payload.title));
@@ -295,8 +296,8 @@ export const pushToUser = async (
   userId: string,
   payload: PushPayload,
 ): Promise<{ sent: number; failed: number }> => {
-  // Mirror to WhatsApp for this one user (fire-and-forget, independent of FCM).
-  void mirrorToWhatsAppUser(userId, payload);
+  // Nudge Layer bridge (see pushToCouple).
+  recordPushEvent({ kind: 'user', userId }, payload);
 
   if (!enabled) {
     logDisabledSkip(String(payload.data?.type ?? payload.title));

@@ -10,3 +10,4 @@ export * from './envelope';
 export * from './profile';
 export * from './discovery';
 export * from './auth';
+export * from './nudge';

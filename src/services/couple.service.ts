@@ -699,7 +699,7 @@ export class CoupleService {
 
     await prisma.couple.update({
       where: { coupleId },
-      data: { isProfileComplete: true },
+      data: { isProfileComplete: true, profileCompletedAt: new Date() },
     });
 
     if (before.locationCity) {

@@ -8,6 +8,8 @@ import { Sentry, sentryEnabled } from './lib/sentry';
 import { errorHandler } from './middleware/errorHandler';
 import apiRouter from './routes/index';
 import { appVersionGate } from './middleware/appVersionGate';
+import { recordPublicClick } from './services/nudge/nudge.intents';
+import { schemeUrlFor } from './services/nudge/nudge.links';
 
 // ─── Deep-Link / Store Configuration ──────────────────────────────────────────
 // These identifiers power the /share/* redirect pages and the App Links /
@@ -310,7 +312,7 @@ export const createApp = (): Application => {
       details: [
         {
           appID: `${IOS_TEAM_ID}.${IOS_BUNDLE_ID}`,
-          paths: ['/share/*', '/app'],
+          paths: ['/share/*', '/app', '/l/*'],
         },
       ],
     },
@@ -374,6 +376,28 @@ export const createApp = (): Application => {
         title: `${coupleName} on SAWA`,
         description: `Check out ${coupleName} on SAWA — everything, built around couples.`,
         scheme: `${APP_SCHEME}://couple/${id}`,
+        emoji: '💛',
+      }),
+    );
+  });
+
+  // /l/:token — a WhatsApp nudge link when the app is NOT installed (or the
+  // link was opened in a browser). Records the click, offers the store, and
+  // leaves the intent for the first login (GET /api/v1/nudges/pending-intent).
+  // When the app IS installed the OS opens it directly on this URL (App Link
+  // / Universal Link path /l/*) and this handler never runs.
+  app.get('/l/:token', async (req: Request, res: Response) => {
+    const token = safeLinkId(req.params.token);
+    let target: Record<string, string> | null = null;
+    try {
+      target = token ? await recordPublicClick(token) : null;
+    } catch { /* non-fatal: still offer the app */ }
+    sendRedirectHtml(
+      res,
+      renderSharePage({
+        title: 'Waiting for you on Sawa',
+        description: 'Open Sawa to see it, or get the app to join your partner.',
+        scheme: target ? schemeUrlFor(target as { subtype: string } & Record<string, string>) : `${APP_SCHEME}://n/home`,
         emoji: '💛',
       }),
     );

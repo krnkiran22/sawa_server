@@ -11,6 +11,8 @@ import promptRoutes from './prompt.routes';
 import reportRoutes from './report.routes';
 import usRoutes from './us.routes';
 import subscriptionRoutes from './subscription.routes';
+import nudgeRoutes from './nudge.routes';
+import webhookRoutes from './webhook.routes';
 
 const router = Router();
 
@@ -26,5 +28,8 @@ router.use('/prompts', promptRoutes);
 router.use('/reports', reportRoutes);
 router.use('/us', usRoutes);
 router.use('/subscriptions', subscriptionRoutes);
+router.use('/nudges', nudgeRoutes);
+// Provider callbacks (WATI). Secret-authenticated, no user token.
+router.use('/webhooks', webhookRoutes);
 
 export default router;

@@ -4,6 +4,38 @@
 
 ---
 
+## [2026-08-31] — The Nudge Layer: WhatsApp nudges (outbox → policy → WATI), consent, links, journeys, admin control room
+
+**Why (Arfam, 2026-08-31):** every meaningful moment should reach the partner on WhatsApp with one
+tap back into Sawa; welcome + partner-joined messages; proactive nudges later. The old
+`whatsapp.service.ts` was a 1:1 mirror of push (no link, consent, cap, per-family template or
+measurement) and is retired. Decisions: opt-in ON by default (disclosed at the OTP screen), STOP
+honoured instantly + in-app toggle, **no quiet hours**, WATI as BSP.
+
+**What:**
+- Schema: `NudgePreference`, `EngagementEvent`, `NudgeDelivery`, `NudgeTemplate`, `Journey`,
+  `Couple.profileCompletedAt`, enums `NudgeChannel/NudgeStatus/NudgeCategory` (db push on boot).
+- `services/nudge/*`: events (outbox; `recordPushEvent` bridges every push call site), policy
+  (pure), engine (SKIP LOCKED claims, online/active gate, caps, provider send, status callbacks,
+  conversion), copy + 14 seeded templates (disabled until approved), journeys (partner_waiting,
+  first week, Friday/Sunday beats, quiet couple), inbound (WATI status + STOP/START + quick
+  replies), actions (`sendLoveToPartner`, extracted into `us.service.ts` and shared with the socket
+  handler), links/intents (`/l/<token>`, couple-scoped resolve, deferred intent), stats, admin;
+  providers `wati` (production) and `twilio` behind one interface.
+- Routes: `/nudges/*` (authenticate), `POST /webhooks/wati?secret=` (timing-safe secret, fails
+  closed), `/admin/nudges/*` (adminAuth + zod + asyncHandler), public `GET /l/:token`; AASA paths
+  gain `/l/*`. `jobs/nudgeWorker.ts` runs on pm2 worker 0.
+- `push.service.ts` records outbox events instead of mirroring; `auth.service` emits `welcome` and
+  routes the partner-invite WhatsApp through the engine; `sockets/presence.ts` lifts
+  `isUserOnline` out of `us.socket.ts`; `i18n/notif.ts` exports `localizeMoodLabel`.
+- Env: `WHATSAPP_PROVIDER`, `WATI_API_URL`, `WATI_API_TOKEN`, `WATI_WEBHOOK_SECRET`,
+  `WHATSAPP_DAILY_GLOBAL_CAP`, `NUDGE_DAILY_CAP`, `NUDGE_FAMILY_COOLDOWN_MIN`,
+  `NUDGE_ACTIVE_GRACE_SEC`, `NUDGE_WHATSAPP_DELAY_MIN`, `NUDGE_WORKER_ENABLED` (+ `.env.example`).
+- Contracts: `contracts/nudge.ts` (synced to mobile).
+Gates: tsc clean, jest 111/111 (24 new: policy, copy/families/links, inbound), contracts in sync.
+Ops to flip it on: WATI env + `WHATSAPP_NOTIFICATIONS_ENABLED=true`, templates created at WATI
+under the seeded names, enabled in admin, webhook URL set at WATI.
+
 ## [2026-08-31] — Strict city + gender at completion; relationship status on cards; AI bio guard; prompt library seeded
 
 **Why (Arfam's "what's left" pass):** the fleet floor is now 1.0.4(11)+, so the WARN-only

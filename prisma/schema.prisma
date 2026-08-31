@@ -74,6 +74,9 @@ model Couple {
   locationLatitude      Float?
   locationLongitude     Float?
   isProfileComplete     Boolean                @default(false)
+  // Stamped by the ONE writer of isProfileComplete (couple.service
+  // markProfileComplete). Drives the partner-waiting journey (Nudge Layer).
+  profileCompletedAt    DateTime?
   isSubscribed          Boolean                @default(false)
   isOpenToMeeting       Boolean                @default(true)
   meetingFrequency      String?
@@ -494,4 +497,155 @@ enum VerificationStatus {
   pending
   verified
   rejected
+}
+
+// ─── Nudge Layer (services/nudge/*, 2026-08-31) ──────────────────────────────
+// Domain events → per-recipient channel deliveries → provider. Postgres is the
+// queue (FOR UPDATE SKIP LOCKED claims in nudge.engine.ts). See PLAN.md.
+
+/// Per-user consent. No row = defaults (WhatsApp ON, nothing muted).
+model NudgePreference {
+  id               String    @id @default(cuid()) @map("_id")
+  userId           String    @unique
+  whatsappOptIn    Boolean   @default(true)
+  whatsappOptInAt  DateTime?
+  whatsappOptOutAt DateTime?
+  // 'app' | 'whatsapp_stop' | 'admin'
+  optOutSource     String?
+  mutedFamilies    String[]  @default([])
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@map("nudge_preferences")
+}
+
+/// The outbox. Written by producers (push.service bridge, auth, journeys),
+/// drained by the worker. Never hard-deleted: it is the engagement ledger.
+model EngagementEvent {
+  id               String    @id @default(cuid()) @map("_id")
+  // Family key (constants/nudge.ts), e.g. 'us_mood', 'welcome'.
+  type             String
+  coupleId         String
+  actorUserId      String?
+  recipientUserIds String[]  @default([])
+  payload          Json?
+  createdAt        DateTime  @default(now())
+  processedAt      DateTime?
+  attempts         Int       @default(0)
+  lastError        String?
+
+  @@index([processedAt, createdAt])
+  @@index([coupleId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@map("engagement_events")
+}
+
+enum NudgeChannel {
+  whatsapp
+  push
+  sms
+}
+
+enum NudgeStatus {
+  queued
+  sending
+  sent
+  delivered
+  read
+  failed
+  suppressed
+  cancelled
+}
+
+enum NudgeCategory {
+  utility
+  marketing
+}
+
+/// One row per recipient per channel attempt: the funnel lives here
+/// (sent → delivered → read → clicked → opened → converted) and so does the
+/// reason a nudge was NOT sent (suppressedReason).
+model NudgeDelivery {
+  id                 String       @id @default(cuid()) @map("_id")
+  eventId            String?
+  family             String
+  templateKey        String?
+  channel            NudgeChannel @default(whatsapp)
+  recipientUserId    String
+  coupleId           String
+  // E.164 digits without '+', as sent to the provider. Masked in every log.
+  phone              String?
+  locale             String?
+  status             NudgeStatus  @default(queued)
+  suppressedReason   String?
+  scheduledAt        DateTime     @default(now())
+  sentAt             DateTime?
+  deliveredAt        DateTime?
+  readAt             DateTime?
+  failedAt           DateTime?
+  error              String?
+  providerMessageId  String?
+  // Copy context captured at enqueue (names, feeling, note) and the rendered
+  // variables at send time, so a delivery is reproducible in admin.
+  context            Json?
+  variables          Json?
+  linkToken          String?      @unique
+  linkTarget         Json?
+  clickedAt          DateTime?
+  appOpenedAt        DateTime?
+  intentConsumedAt   DateTime?
+  convertedAt        DateTime?
+  convertedEventType String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  @@index([recipientUserId, createdAt])
+  @@index([recipientUserId, family, createdAt])
+  @@index([status, scheduledAt])
+  @@index([providerMessageId])
+  @@index([phone, sentAt])
+  @@index([coupleId, family, createdAt])
+  @@index([family, createdAt])
+  @@index([clickedAt])
+  @@map("nudge_deliveries")
+}
+
+/// Which approved provider template carries a family in a locale. Seeded
+/// disabled; admin enables once the template is approved at the BSP.
+model NudgeTemplate {
+  id           String        @id @default(cuid()) @map("_id")
+  family       String
+  locale       String        @default("en")
+  // Template name at WATI (or Content SID at Twilio).
+  providerName String
+  category     NudgeCategory @default(utility)
+  // Ordered resolver ids filling {{1}}..{{n}} (services/nudge/nudge.copy.ts).
+  variables    String[]      @default([])
+  bodyPreview  String?
+  enabled      Boolean       @default(false)
+  // Button title → action for inbound quick replies.
+  quickReplies Json?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@unique([family, locale])
+  @@index([enabled])
+  @@map("nudge_templates")
+}
+
+/// Proactive nudges as data (services/nudge/nudge.journeys.ts).
+model Journey {
+  id        String    @id @default(cuid()) @map("_id")
+  key       String    @unique
+  name      String
+  // 'partner_waiting' | 'after_signup' | 'schedule' | 'inactivity'
+  kind      String
+  family    String
+  config    Json
+  enabled   Boolean   @default(false)
+  lastRunAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@map("journeys")
 }

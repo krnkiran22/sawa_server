@@ -161,6 +161,15 @@ id, phone, otpHash, expiresAt, attempts, createdAt
 
 ---
 
+### Nudge Layer (2026-08-31)
+
+`NudgePreference` (per-user WhatsApp consent; no row = ON) · `EngagementEvent` (the outbox:
+family, coupleId, actorUserId, recipientUserIds, payload, processedAt) · `NudgeDelivery` (one row
+per recipient per channel attempt: status, suppressedReason, providerMessageId, linkToken,
+clicked/opened/converted stamps) · `NudgeTemplate` (family+locale → provider template name,
+variables, category, enabled) · `Journey` (proactive nudges as data). See
+`src/services/nudge/*` and Architecture Decisions below.
+
 ## API Reference
 
 > Base prefix: `/api/v1`
@@ -232,6 +241,34 @@ id, phone, otpHash, expiresAt, attempts, createdAt
 | GET | `/us/planned-dates` | ✅ | Planned dates (earliest first) — **cursor-paginated**, see below |
 | PATCH | `/us/planned-dates/:id` | ✅ | Edit a planned date (`activity?/date?/rawDate?/time?/note?`). **Update-only, never upsert** — an unaccepted date request has no server row and must stay creator-local, so missing → 404, foreign couple → 403. Idempotency-Key honored (offline-queue replay safe). Returns the updated plan in the standard envelope |
 | GET | `/us/fridge-notes` | ✅ | Sticky notes (newest first) — **cursor-paginated**, see below |
+
+### Nudges (`/nudges`) — WhatsApp consent + link resolution
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/nudges/preferences` | ✅ | `{ preferences: { whatsappOptIn, mutedFamilies, whatsappOptOutAt } }` (defaults when no row) |
+| PUT | `/nudges/preferences` | ✅ | `{ whatsappOptIn?, mutedFamilies? }` → saved preferences |
+| GET | `/nudges/links/:token` | ✅ | The app opened on `https://<host>/l/:token`; returns `{ target }` (tap-router payload), couple-scoped; 404 otherwise |
+| GET | `/nudges/pending-intent` | ✅ | Newest clicked, unconsumed link target for the caller (first login after a tap without the app), consumed on read |
+
+### Webhooks (`/webhooks`)
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/webhooks/wati?secret=…` | shared secret | WATI events: delivered/read/failed → funnel; inbound `STOP`/`START` → consent; quick-reply button titles → actions. Always 200 once authenticated |
+
+### Admin nudges (`/admin/nudges`, adminAuth)
+| Method | Path | Description |
+|---|---|---|
+| GET | `/admin/nudges/overview?days=7` | Funnel per family, suppressed reasons, provider state, queue depth |
+| GET/POST | `/admin/nudges/templates` | Registry; POST upserts by (family, locale) |
+| PATCH/DELETE | `/admin/nudges/templates/:id` | Enable/rename/re-categorise; delete |
+| GET | `/admin/nudges/journeys` · PATCH `/:id` | Journeys; toggle enabled, edit config |
+| POST | `/admin/nudges/test-send` | `{ phone, family, locale? }` → one template with sample variables, recorded as `test_<family>` |
+| GET | `/admin/nudges/deliveries?limit&cursor&family&status` | Keyset-paginated deliveries (phones masked) |
+
+### Public (no prefix)
+| Method | Path | Description |
+|---|---|---|
+| GET | `/l/:token` | WhatsApp nudge link when the app is not installed: records the click, renders the store page, leaves the intent for first login. App Link / Universal Link path when installed |
 
 ### Cursor pagination (v2, additive / backward-compatible)
 
@@ -321,6 +358,26 @@ mobile build keeps working untouched; the new `cursor`/`limit` params and
 - [ ] Comprehensive error handling
 - [ ] Unit + integration tests
 - [ ] CI/CD pipeline
+
+## Architecture Decisions
+
+### 2026-08-31 — Nudge Layer: Postgres outbox, pure policy, channel adapters (WATI)
+
+Every meaningful moment must be able to reach the other partner on WhatsApp with one tap back
+into the exact screen (Arfam). Shape: producers write an `EngagementEvent` (the existing push
+payload IS the event; `push.service` calls `recordPushEvent`, so 21 call sites changed nothing)
+→ the worker (`jobs/nudgeWorker.ts`, pm2 worker 0) claims events with `FOR UPDATE SKIP LOCKED`
+→ `nudge.policy.decide()` (pure: excluded family, channel on, template enabled, phone, opt-in,
+muted, online/active, family cooldown, daily cap, global cap; NO quiet hours by decision) →
+`NudgeDelivery` rows → the dispatcher renders template variables and calls the provider behind
+`WhatsAppProvider` (WATI in production, Twilio retained). Postgres is the queue on purpose: no new
+dependency, works without Redis, and the DB was the durable store anyway; a dedicated worker
+task can drain the same tables later (`NUDGE_WORKER_ENABLED`). Templates seed disabled and are
+enabled by admin once approved at the BSP: "approved" is a DB flag, so nothing fires before Meta
+says yes. Links are unguessable tokens (`/l/<token>`) resolved couple-scoped so one couple can
+never read another's target; the browser fallback keeps a deferred intent for the partner who
+has no app yet. Consent is a server preference (`/nudges/preferences`), flipped by STOP/START
+on WhatsApp itself or the Settings toggle. Chat and cycle are hard-excluded from WhatsApp.
 
 ## Security Decisions
 

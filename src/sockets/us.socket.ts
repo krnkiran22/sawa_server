@@ -3,6 +3,8 @@ import { prisma } from '../lib/prisma';
 import { GAME_SESSION_TTL_MS } from '../services/us.service';
 import { logger } from '../utils/logger';
 import { pushToUser } from '../services/push.service';
+import { isUserOnline } from './presence';
+import { sendLoveToPartner } from '../services/us.service';
 import { clearGameChallengeNotification, clearDateRequestNotification, updateDateRequestNotificationData } from '../services/notification.service';
 import { SOCKET_EVENTS } from '../constants/socketEvents';
 import { i18nData, renderNotif, NotifParams } from '../i18n/notif';
@@ -234,27 +236,6 @@ async function findPartnerIdAndPhoto(
   } catch (err: any) {
     logger.warn(`[UsSocket] findPartnerIdAndPhoto failed: ${err.message}`);
     return { partnerId: null, senderPhoto: null };
-  }
-}
-
-/**
- * Is this user holding a live socket in their couple room right now?
- * Cluster-correct: fetchSockets() goes through the Redis adapter and sees
- * every PM2 worker; RemoteSocket exposes only `data`, hence the handshake
- * mirror in sockets/index.ts. Fails OPEN (reports offline) — for someone
- * actively waiting on a game, a redundant buzz beats silence.
- */
-async function isUserOnline(
-  io: SocketIOServer,
-  coupleId: string,
-  targetUserId: string,
-): Promise<boolean> {
-  try {
-    const sockets = await io.in(`couple:${coupleId}`).fetchSockets();
-    return sockets.some((s) => s.data?.userId === targetUserId);
-  } catch (err: any) {
-    logger.warn(`[UsSocket] presence check failed (assuming offline): ${err.message}`);
-    return false;
   }
 }
 
@@ -535,30 +516,10 @@ export const registerUsHandlers = (io: SocketIOServer, socket: Socket): void => 
       senderUserId: userId,
     });
 
-    // Save in-app notification (partner sees it; sender is filtered client-side).
-    await saveUsNotification({
-      coupleId,
-      senderUserId: userId,
-      subtype: 'us_love',
-      title: `${senderName} sent you love ❤️`,
-      message: 'Thinking of you 💛',
-      extraData: i18nData('us.nudge.love', { name: senderName }),
-    });
-
-    // Tell the partner's Notifications screen to refresh right away.
-    io.to(`couple:${coupleId}`).except(socket.id).emit('notification:new', {
-      type: 'us_love',
-    });
-
-    const { partnerId: lovePartnerId, senderPhoto: loveSenderPhoto } = await findPartnerIdAndPhoto(userId, coupleId);
-    if (lovePartnerId) {
-      pushToUser(lovePartnerId, {
-        title: `${senderName} sent you love ❤️`,
-        body: 'Tap to see it',
-        data: { type: 'us_love', subtype: 'us_love', navigate: 'Notifications', ...(loveSenderPhoto ? { senderPhoto: loveSenderPhoto } : {}), ...i18nData('us.nudge.love', { name: senderName }) },
-        collapseKey: 'us_love',
-      }).catch(() => null);
-    }
+    // Row + badge refresh + partner push live in us.service.sendLoveToPartner,
+    // shared with the WhatsApp quick reply 'Send love back' (Nudge Layer,
+    // 2026-08-31). The room emit above stays here: it needs this socket's id.
+    await sendLoveToPartner({ coupleId, senderUserId: userId, senderName, via: 'socket' });
   });
 
   // ── us:feeling ────────────────────────────────────────────────────────

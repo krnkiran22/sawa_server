@@ -124,6 +124,31 @@ const envSchema = z.object({
   // Notification `type`s to NOT mirror to WhatsApp (comma-separated). Defaults to
   // 'message' so high-frequency chat messages don't spam WhatsApp / rack up cost.
   WHATSAPP_EXCLUDE_TYPES: z.string().default('message'),
+  // ─── Nudge Layer (services/nudge/*, 2026-08-31) ───────────────────────────
+  // Who carries WhatsApp. 'wati' is production (Arfam's verified business
+  // number lives there); 'twilio' is the sandbox/fallback; 'none' records
+  // every WhatsApp as suppressed(disabled) while leaving the funnel visible.
+  WHATSAPP_PROVIDER: z.enum(['none', 'wati', 'twilio']).default('none'),
+  // Tenant-scoped WATI base URL, e.g. https://live-mt-server.wati.io/<tenantId>
+  WATI_API_URL: z.string().optional(),
+  WATI_API_TOKEN: z.string().optional(),
+  // Shared secret WATI appends as ?secret= to POST /api/v1/webhooks/wati.
+  // Unset = the webhook refuses everything (fails closed).
+  WATI_WEBHOOK_SECRET: z.string().optional(),
+  // Platform-wide WhatsApp sends per UTC day (0 = unlimited). Same posture as
+  // SMS_DAILY_GLOBAL_CAP: a runaway loop costs at most one day's budget.
+  WHATSAPP_DAILY_GLOBAL_CAP: z.string().default('5000').transform(Number),
+  // Per-recipient WhatsApp nudges per UTC day (0 = unlimited).
+  NUDGE_DAILY_CAP: z.string().default('8').transform(Number),
+  // Minutes between two WhatsApps of the SAME family to one recipient.
+  NUDGE_FAMILY_COOLDOWN_MIN: z.string().default('30').transform(Number),
+  // Seconds of API activity that count as 'in the app right now'.
+  NUDGE_ACTIVE_GRACE_SEC: z.string().default('120').transform(Number),
+  // Minutes to hold a WhatsApp for someone who also has push (0 = immediate,
+  // Arfam 2026-08-31: 'the moment something happens, it notifies').
+  NUDGE_WHATSAPP_DELAY_MIN: z.string().default('0').transform(Number),
+  // Run the outbox/dispatch/journey loops on this process (pm2 worker 0).
+  NUDGE_WORKER_ENABLED: z.string().default('true').transform((v) => v === 'true'),
   GROQ_API_KEY: z.string().min(1, 'GROQ_API_KEY is required'),
   // Admin portal bootstrap. On startup the server upserts an admin user with
   // these credentials so the admin dashboard login always works after a deploy.

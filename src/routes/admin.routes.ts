@@ -3,6 +3,8 @@ import { AdminController } from '../controllers/admin.controller';
 
 import { adminAuth } from '../middleware/adminAuth';
 import { authRateLimiter } from '../middleware/rateLimiter';
+import { asyncHandler } from '../utils/asyncHandler';
+import * as nudgeAdmin from '../controllers/adminNudge.controller';
 
 const router = Router();
 const controller = new AdminController();
@@ -45,5 +47,16 @@ router.delete('/blocks', controller.adminUnblock);
 router.patch('/reports/:id', controller.resolveReport);
 router.post('/notifications', controller.sendNotification);
 router.post('/flush-database', controller.flushDatabase);
+
+// ─── Nudge Layer control room (controllers/adminNudge.controller.ts) ─────────
+router.get('/nudges/overview', nudgeAdmin.validateOverviewQuery, asyncHandler(nudgeAdmin.overview));
+router.get('/nudges/templates', asyncHandler(nudgeAdmin.listTemplates));
+router.post('/nudges/templates', nudgeAdmin.validateTemplateBody, asyncHandler(nudgeAdmin.upsertTemplate));
+router.patch('/nudges/templates/:id', nudgeAdmin.validateIdParams, nudgeAdmin.validateTemplatePatch, asyncHandler(nudgeAdmin.patchTemplate));
+router.delete('/nudges/templates/:id', nudgeAdmin.validateIdParams, asyncHandler(nudgeAdmin.deleteTemplate));
+router.get('/nudges/journeys', asyncHandler(nudgeAdmin.listJourneys));
+router.patch('/nudges/journeys/:id', nudgeAdmin.validateIdParams, nudgeAdmin.validateJourneyPatch, asyncHandler(nudgeAdmin.patchJourney));
+router.post('/nudges/test-send', nudgeAdmin.validateTestSendBody, asyncHandler(nudgeAdmin.testSend));
+router.get('/nudges/deliveries', nudgeAdmin.validateDeliveriesQuery, asyncHandler(nudgeAdmin.deliveries));
 
 export default router;

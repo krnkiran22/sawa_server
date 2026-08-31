@@ -11,6 +11,7 @@ import { startSubscriptionNotifier } from './jobs/subscriptionNotifier';
 import { startEventReminderNotifier } from './jobs/eventReminderNotifier';
 import { startCelebrationNotifier } from './jobs/celebrationNotifier';
 import { startRejectionPurge } from './jobs/rejectionPurge';
+import { startNudgeWorker } from './jobs/nudgeWorker';
 import { migrateUsRedisToPostgres } from './jobs/migrateUsToPg';
 import { backfillVerification } from './config/backfillVerification';
 import { env } from './config/env';
@@ -55,6 +56,8 @@ const start = async (): Promise<void> => {
     startEventReminderNotifier();
     startCelebrationNotifier();
     startRejectionPurge();
+    // Nudge Layer: outbox → WhatsApp (services/nudge). Same one-worker gate.
+    startNudgeWorker();
     // One-time backfill of Us-space data from Redis into Postgres.
     migrateUsRedisToPostgres().catch(() => null);
   }

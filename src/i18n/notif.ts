@@ -74,6 +74,10 @@ const MOODS: Record<string, Record<NotifLocale, string>> = {
   Low: { en: 'Low', hi: 'उदास', kn: 'ಖಿನ್ನ', mr: 'उदास' },
 };
 
+/** Public wrapper for the Nudge Layer's WhatsApp copy (services/nudge/nudge.copy.ts). */
+export const localizeMoodLabel = (feeling: string | undefined, locale: string): string | undefined =>
+  localizeMood(feeling, isLocale(locale) ? locale : 'en');
+
 const localizeMood = (feeling: string | undefined, loc: NotifLocale): string | undefined => {
   if (!feeling) return feeling;
   return MOODS[feeling]?.[loc] ?? feeling;

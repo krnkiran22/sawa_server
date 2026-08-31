@@ -809,3 +809,69 @@ export async function getActiveGame(coupleId: string): Promise<ActiveGame> {
     },
   };
 }
+
+// ─── Love (shared by the socket handler and the WhatsApp quick reply) ─────────
+
+/**
+ * "Send love" from one partner to the other: the Notification row (hidden from
+ * the sender client-side via data.senderUserId), the badge refresh, the
+ * Notifications-screen refresh signal, and the partner push. The socket
+ * handler emits the live `us:love` itself (it has the socket id to exclude);
+ * a WhatsApp quick reply has no socket, so `via: 'whatsapp'` emits it here.
+ */
+export async function sendLoveToPartner(args: {
+  coupleId: string;
+  senderUserId: string;
+  senderName?: string;
+  via: 'socket' | 'whatsapp';
+}): Promise<void> {
+  const { coupleId, senderUserId } = args;
+  const resolved = await getPartnerAndSender(senderUserId, coupleId);
+  const senderName = (args.senderName || resolved.senderName).split(/\s+/)[0] || 'Your partner';
+  const partnerId = resolved.partnerId;
+  const io = (global as any).io;
+
+  if (args.via === 'whatsapp' && io) {
+    io.to(`couple:${coupleId}`).emit('us:love', { from: senderName, at: new Date().toISOString(), senderUserId });
+  }
+
+  try {
+    await prisma.notification.create({
+      data: {
+        recipientId: coupleId,
+        senderId: coupleId,
+        type: 'system',
+        title: `${senderName} sent you love ❤️`,
+        message: 'Thinking of you 💛',
+        data: { subtype: 'us_love', senderUserId, navigate: 'UsSpace', ...i18nData('us.nudge.love', { name: senderName }) },
+        read: false,
+      },
+    });
+    await invalidateNotifUnreadCount(coupleId);
+  } catch (err: any) {
+    // Best-effort: the live moment already happened; the row is history.
+  }
+
+  if (io) io.to(`couple:${coupleId}`).emit('notification:new', { type: 'us_love' });
+
+  if (partnerId) {
+    let senderPhoto: string | null = null;
+    try {
+      const couple = await prisma.couple.findUnique({ where: { coupleId }, select: { primaryPhoto: true } });
+      senderPhoto = couple?.primaryPhoto ?? null;
+    } catch { /* photo is decoration */ }
+    pushToUser(partnerId, {
+      title: `${senderName} sent you love ❤️`,
+      body: 'Tap to see it',
+      data: {
+        type: 'us_love',
+        subtype: 'us_love',
+        senderUserId,
+        navigate: 'Notifications',
+        ...(senderPhoto ? { senderPhoto } : {}),
+        ...i18nData('us.nudge.love', { name: senderName }),
+      },
+      collapseKey: 'us_love',
+    }).catch(() => null);
+  }
+}

@@ -9,7 +9,8 @@ import { AppError } from '../utils/AppError';
 import { prisma } from '../lib/prisma';
 import { logger } from '../utils/logger';
 import { TokenPair } from '../types/index';
-import { sendWhatsAppDirect } from './whatsapp.service';
+import { enqueuePartnerInvite } from './nudge/nudge.engine';
+import { emitDomainEvent } from './nudge/nudge.events';
 import { logAuthEvent } from '../utils/authEvents';
 import { env } from '../config/env';
 
@@ -240,6 +241,20 @@ export class AuthService {
     );
 
     logAuthEvent('signup.verified', { phone: yourPhone, coupleId });
+
+    // Welcome both partners (Nudge Layer, 2026-08-31). Outbox write only: the
+    // worker applies consent/caps and picks the channel; never blocks signup.
+    void userRepository
+      .findByPhone(partnerPhone)
+      .then((partner) =>
+        emitDomainEvent({
+          type: 'welcome',
+          coupleId,
+          actorUserId: yourUser.id,
+          recipientUserIds: [yourUser.id, ...(partner ? [partner.id] : [])],
+        }),
+      )
+      .catch(() => null);
 
     return {
       coupleId,
@@ -588,7 +603,9 @@ export class AuthService {
     const msg = `Your partner has joined Sawa and is waiting for you. Download the app: ${inviteLink}`;
     const sent = await otpService.sendInvitation(partnerPhone, msg, ip);
     if (sent) {
-      sendWhatsAppDirect(partnerPhone, msg);
+      // WhatsApp copy rides the Nudge Layer (template 'partner_invite', own
+      // caps + consent), still gated on the SMS guard having allowed the send.
+      void enqueuePartnerInvite(partnerPhone);
     }
     return sent;
   }

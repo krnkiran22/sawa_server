@@ -1,7 +1,7 @@
 # SAWA Backend — Rules & Conventions
 
 > **Always read this file before making any changes to the backend.**
-> Last verified: 2026-08-27 against `arfam-fix`. **Living document**:
+> Last verified: 2026-08-31 against `main` + `feat/nudge-layer`. **Living document**:
 > any commit that makes a line here false must update that line in the same
 > commit and bump this stamp.
 >
@@ -94,6 +94,10 @@
 - **Never return more than the client needs**: explicit response shaping,
   never spread a DB row into a response (the-floor.md S8).
 - CORS origins come from `CORS_ORIGINS` env, whitelisted — no wildcard.
+- **Provider webhooks** (`POST /api/v1/webhooks/wati`) authenticate by a shared
+  secret compared with `timingSafeEqualStr`, never by a user token, and fail
+  closed when `WATI_WEBHOOK_SECRET` is unset. Inbound text is data, never a
+  command beyond the STOP/START keyword set (`constants/nudge.ts`).
 - Billing surfaces — Google Play RTDN webhooks, Apple receipt validation,
   `certs/apple/` — get extra review and a why-first `CHANGELOG.md` entry for
   any change.
@@ -122,7 +126,12 @@
 - No business logic in route or model files. HTTP handling in
   `src/controllers/`, business logic in `src/services/`, DB access in
   `src/repositories/`, route definitions in `src/routes/`.
-- **Baseline debt (2026-08-19):** 6 of 9 controllers still hit `prisma`
+- **The Nudge Layer** lives in `src/services/nudge/*` (outbox → policy → channel
+  adapters). Producers write events through `nudge.events.ts` (or via
+  `push.service`, which records one for every push); nothing else may call a
+  WhatsApp provider directly. Template copy comes from
+  `SAWA_Master_Reference.md` §11.7 first.
+- **Baseline debt (2026-08-19):** 6 of 12 controllers still hit `prisma`
   directly, and most services query without a repository (only 5 repositories
   exist). New endpoints follow the full layering; when you touch a legacy
   path, move it one layer closer to the rule. Never add a new direct-prisma
@@ -165,7 +174,8 @@
   user controllers predate it — any endpoint you touch there gets zod in the
   same change.
 - **`asyncHandler`** (`src/utils/asyncHandler.ts`) wraps controllers at the
-  route layer. Wired in 8 of 13 route files; `admin`, `prompt`, `report`, and
+  route layer. Wired in 10 of 15 route files (the `nudge`, `webhook` and
+  `/admin/nudges/*` handlers are wrapped); `admin`, `prompt`, `report`, and
   `us` routes are baseline debt — wrap when touched.
 - Errors thrown as `AppError`; `async/await` only, no raw promise chains.
 - Constants in `src/constants/` — no magic strings/numbers inline.
