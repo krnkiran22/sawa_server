@@ -20,7 +20,9 @@ export type AuthFunnelEvent =
   | 'login.user_not_found'
   | 'login.couple_not_found'
   | 'onboarding.completed'
-  | 'onboarding.refused_incomplete';
+  | 'onboarding.refused_incomplete'
+  | 'onboarding.refused_no_city'
+  | 'onboarding.refused_no_gender';
 
 export const phoneHash = (phone: string): string =>
   crypto.createHash('sha256').update(phone.replace(/\D/g, '')).digest('hex').slice(0, 12);

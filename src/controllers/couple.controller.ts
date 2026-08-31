@@ -346,7 +346,12 @@ export const completeOnboarding = async (req: Request, res: Response) => {
   // floor — tracked in workspace todo.md.
   const hasCity = !!stored?.locationCity && stored.locationCity !== 'Unknown';
   if (!hasCity) {
-    logger.warn(`[CoupleController] completeOnboarding for ${coupleId}: no city stored (legacy build?)`);
+    // STRICT since 2026-08-31: the fleet floor is 1.0.4(11)+ and every build
+    // in the field collects the city client-side — a missing one is a defect,
+    // not a legacy build. Refuse rather than mint an incomplete profile.
+    logger.warn(`[CoupleController] completeOnboarding REFUSED for ${coupleId}: no city stored`);
+    logAuthEvent('onboarding.refused_no_city', { coupleId });
+    throw new AppError('Please add your city to finish your profile.', 400, 'CITY_REQUIRED');
   }
 
   // Gender follows the same fleet contract as city: the current app makes it
@@ -357,7 +362,10 @@ export const completeOnboarding = async (req: Request, res: Response) => {
     select: { gender: true },
   });
   if (partners.some((p) => !p.gender)) {
-    logger.warn(`[CoupleController] completeOnboarding for ${coupleId}: gender missing for a partner (legacy build?)`);
+    // Same strict contract as city ("Prefer not to say" is a first-class answer).
+    logger.warn(`[CoupleController] completeOnboarding REFUSED for ${coupleId}: gender missing for a partner`);
+    logAuthEvent('onboarding.refused_no_gender', { coupleId });
+    throw new AppError('Pick a gender for both of you to finish your profile.', 400, 'GENDER_REQUIRED');
   }
 
   // 4. The ONE writer of isProfileComplete (also announces to the city).

@@ -40,6 +40,7 @@ BIO FORMAT (strict):
 - Never corporate or AI-sounding.
 
 VOICE:
+- NEVER state the relationship status (married, engaged, dating, years together) — the profile shows it as a tag beside their names; the bio is about how they live, not what they are.
 - Pull one real detail from their answers (food, hosting, trips, pace, boundaries).
 - Gentle humour is fine. No emojis. No hashtags.
 - Never use: journey, passionate, dynamic, foodie, adventure-seekers, partner in crime, love to laugh, vibe, energy, explore, connect, meaningful, authentic (as filler).

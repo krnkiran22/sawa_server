@@ -4,6 +4,24 @@
 
 ---
 
+## [2026-08-31] — Strict city + gender at completion; relationship status on cards; AI bio guard; prompt library seeded
+
+**Why (Arfam's "what's left" pass):** the fleet floor is now 1.0.4(11)+, so the WARN-only
+city/gender checks at `completeOnboarding` had no legacy build left to protect; the profile
+"About" was falling back to the raw relationship status; and the prompt library was seven lines.
+
+**What:**
+- `couple.controller.ts` completeOnboarding: missing city → 400 `CITY_REQUIRED`, missing
+  gender on either partner → 400 `GENDER_REQUIRED` (funnel events `onboarding.refused_no_city`
+  / `onboarding.refused_no_gender`). Every build in the field collects both client-side.
+- `match.service.ts` discovery feed select carries `relationshipStatus` so the card can show
+  the tag under the couple's name.
+- `utils/ai.ts`: the bio prompt now forbids stating the relationship status — it is a tag
+  beside the names, never bio copy.
+- Ops (no code): 49 curated prompts seeded into prod via the admin API (31 couple-thread,
+  18 circle), incl. `{city}` location-aware ones the client fills from the thread's city.
+Gates: tsc clean, jest 87/87, contracts in sync.
+
 ## [2026-08-31] — Partner thread accepts photo messages
 
 **Why:** the chat UI cycle gives every surface the WhatsApp-grammar composer ("+" sheet with

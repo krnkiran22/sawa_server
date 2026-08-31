@@ -211,6 +211,7 @@ export class MatchService {
     const sayHelloSelect = {
       id: true, coupleId: true, profileName: true, primaryPhoto: true,
       locationCity: true, bio: true, activities: true, socialVibes: true, matchCriteria: true,
+      relationshipStatus: true,
       // `blocked` is needed for the bidirectional-block guard below (v3 M2).
       blocked: true,
       ...SCORING_ANSWERS_SELECT,
