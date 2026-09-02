@@ -2,6 +2,13 @@
 
 Infrastructure is code (`sawa_infra`, CDK). Day-to-day deploys don't touch it.
 
+> **Prod only since 2026-09-02** (staging torn down; recreate via `cdk deploy
+> Sawa-staging` + its env secret if ever needed). `<stage>` below = `prod`.
+> Pipe rule learned the hard way: NEVER pipe `docker build`/`docker push`
+> through `tail` — the pipe masks a failing exit code and the chain marches on
+> over a dead image. Verify a deploy by the LIVE task definition or the ECR
+> digest, not by exit codes.
+
 ## Ship a server change
 
 1. Gates: `npx tsc --noEmit` · `npx jest --runInBand` (all green) ·
@@ -16,7 +23,7 @@ Infrastructure is code (`sawa_infra`, CDK). Day-to-day deploys don't touch it.
 3. Bounce the service:
    `aws ecs update-service --profile sawa --cluster sawa-<stage> --service sawa-api-<stage> --force-new-deployment`
 4. Watch it land: `aws ecs wait services-stable ...` then
-   `curl https://api[-staging].sawaliving.in/health` → `db: ok`.
+   `curl https://api.sawaliving.in/health` → `db: ok`.
 5. Schema applies itself on boot (`npm start` runs `prisma db push`).
 
 ## Change runtime config / secrets
