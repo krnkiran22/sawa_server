@@ -53,6 +53,12 @@ const testSendBody = z.object({
 });
 export const validateTestSendBody = validate(testSendBody);
 
+const sendNoteBody = z.object({
+  coupleId: z.string().min(1).max(64).regex(/^[A-Za-z0-9_-]+$/),
+  text: z.string().min(1).max(500),
+});
+export const validateSendNoteBody = validate(sendNoteBody);
+
 const deliveriesQuery = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional(),
   cursor: z.string().optional(),
@@ -100,6 +106,12 @@ export const patchJourney = async (req: Request, res: Response): Promise<void> =
 export const testSend = async (req: Request, res: Response): Promise<void> => {
   const data = await nudgeAdmin.testSend(req.body as z.infer<typeof testSendBody>, req.user!.userId);
   sendSuccess({ res, data, message: 'Test message sent' });
+};
+
+export const sendNote = async (req: Request, res: Response): Promise<void> => {
+  const body = req.body as z.infer<typeof sendNoteBody>;
+  const data = await nudgeAdmin.sendCoupleNote(body.coupleId, body.text.trim(), req.user?.userId);
+  sendSuccess({ res, data, message: 'Note sent' });
 };
 
 export const deliveries = async (req: Request, res: Response): Promise<void> => {

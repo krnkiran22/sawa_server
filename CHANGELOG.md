@@ -4,6 +4,32 @@
 
 ---
 
+## [2026-09-02] — WATI live in prod + Sailee's message box (admin_note, freeform-first)
+
+**Ops (go-live):** WATI credentials landed in `sawa/prod/server-env` (Arfam ran the one-time
+script; this session may not write that secret), `sawa_infra` task map gained the ten
+WATI/NUDGE keys (infra `cd3838a`, both stages deployed; staging keeps WhatsApp off with no
+WATI creds). Verified live: task def revision 6 carries the refs, `/health` green, webhook
+401s without the secret, admin overview reports `wati: url + token set`, 14 templates +
+7 journeys seeded. Sends stay gated per family until templates are approved + enabled.
+
+**Feature (Arfam, 2026-09-02):** admin must be able to tell one couple what to fix
+(resubmit-details flow) in their own words, reaching them OFF the app too.
+- New family `admin_note` (activity-insensitive): template `sawa_admin_note`
+  ("Hi {{1}}, a quick note from the Sawa team: {{2}} Open Sawa: {{3}}", §11.7), note
+  variable cap raised 120 → 300 chars.
+- **Freeform-first dispatch** (`FREEFORM_FIRST_FAMILIES`): inside the recipient's open 24h
+  session window the note goes as real free text (WATI session message, `templateKey:
+  'freeform'` on the delivery row); any refusal falls back to the approved template. This is
+  the Meta rule, not ours: free text only inside the window.
+- `POST /admin/nudges/send-note` `{ coupleId, text ≤500 }` (adminAuth + zod) →
+  `nudge.admin.sendCoupleNote`: in-app Notification row + socket/FCM push + WhatsApp to both
+  partners through the normal recipient policy (opt-out and caps hold, held-back sends
+  visible in deliveries).
+- `admin.service.requestCoupleChanges` now also queues the same note as `admin_note` —
+  the request-changes box in the panel reaches WhatsApp with zero UI change.
+Gates: tsc 0, jest 111/111.
+
 ## [2026-08-31] — The Nudge Layer: WhatsApp nudges (outbox → policy → WATI), consent, links, journeys, admin control room
 
 **Why (Arfam, 2026-08-31):** every meaningful moment should reach the partner on WhatsApp with one

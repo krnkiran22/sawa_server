@@ -30,7 +30,16 @@ export const ACTIVITY_INSENSITIVE_FAMILIES: ReadonlySet<string> = new Set([
   'welcome',
   'partner_invite',
   'partner_waiting',
+  // A human wrote this note (Sailee's resubmit-details case); being in the app
+  // right now must not eat it.
+  'admin_note',
 ]);
+
+// Families whose message goes out as FREE TEXT when the recipient's 24h
+// session window is open (they messaged us recently) — reads personal; Meta
+// only delivers free text inside the window, so a refusal falls back to the
+// approved template (2026-09-02, Arfam).
+export const FREEFORM_FIRST_FAMILIES: ReadonlySet<string> = new Set(['admin_note']);
 
 // ─── Families where the actor is also a recipient ─────────────────────────────
 export const INCLUDE_ACTOR_FAMILIES: ReadonlySet<string> = new Set(['welcome']);
@@ -116,5 +125,6 @@ export const NUDGE_DISPATCH_TICK_MS = 5_000;
 export const NUDGE_JOURNEY_TICK_MS = 10 * 60 * 1000;
 /** Link tokens: 16 random bytes → 22 chars base64url. */
 export const NUDGE_LINK_TOKEN_BYTES = 16;
-/** Body text cap when a note/message is embedded in a template variable. */
-export const NUDGE_VARIABLE_TEXT_MAX = 120;
+/** Body text cap when a note/message is embedded in a template variable.
+ *  300 fits Sailee's what-to-fix notes; Meta's template body cap is 1024. */
+export const NUDGE_VARIABLE_TEXT_MAX = 300;

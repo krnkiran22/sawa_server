@@ -57,6 +57,8 @@ router.delete('/nudges/templates/:id', nudgeAdmin.validateIdParams, asyncHandler
 router.get('/nudges/journeys', asyncHandler(nudgeAdmin.listJourneys));
 router.patch('/nudges/journeys/:id', nudgeAdmin.validateIdParams, nudgeAdmin.validateJourneyPatch, asyncHandler(nudgeAdmin.patchJourney));
 router.post('/nudges/test-send', nudgeAdmin.validateTestSendBody, asyncHandler(nudgeAdmin.testSend));
+// Sailee's message box: one couple, one note → in-app + push + WhatsApp.
+router.post('/nudges/send-note', nudgeAdmin.validateSendNoteBody, asyncHandler(nudgeAdmin.sendNote));
 router.get('/nudges/deliveries', nudgeAdmin.validateDeliveriesQuery, asyncHandler(nudgeAdmin.deliveries));
 
 export default router;

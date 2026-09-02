@@ -7,6 +7,8 @@ import { getWhatsAppProvider, toWhatsAppDigits } from './channels/whatsapp.chann
 import { buildLinkUrl } from './nudge.links';
 import { TEMPLATE_SEEDS } from './nudge.templates';
 import { JOURNEY_SEEDS } from './nudge.journeys';
+import { enqueueForRecipients } from './nudge.engine';
+import { emitRealtimeNotification } from '../../utils/realtime';
 
 /**
  * Admin-side operations on the Nudge Layer's registry (templates, journeys)
@@ -201,4 +203,40 @@ export async function testSend(input: { phone: string; family: string; locale: s
   logger.info(`[Nudge] admin ${adminUserId} test-send ${input.family} → ${digits.slice(0, 4)}…: ${result.ok ? 'ok' : result.error}`);
   if (!result.ok) throw new AppError(`Provider refused the send: ${result.error}`, 502, 'PROVIDER_ERROR');
   return { deliveryId: row.id, providerMessageId: result.providerMessageId ?? null, variables };
+}
+
+/**
+ * Sailee's message box (2026-09-02): one couple, one human-written note, three
+ * surfaces at once — in-app Notification row, push, and WhatsApp to both
+ * partners (family 'admin_note': free text inside an open 24h session, the
+ * approved template otherwise; recipient policy still applies, so opt-outs
+ * and caps hold and every held-back send is visible in the deliveries table).
+ */
+export async function sendCoupleNote(coupleId: string, text: string, adminId: string | undefined) {
+  const couple = await prisma.couple.findUnique({ where: { coupleId }, select: { coupleId: true } });
+  if (!couple) throw new AppError('Couple not found', 404, 'NOT_FOUND');
+  const users = await prisma.user.findMany({ where: { coupleId }, select: { id: true } });
+  if (users.length === 0) throw new AppError('Couple has no members', 404, 'NOT_FOUND');
+
+  const title = 'A note from the Sawa team';
+  const notif = await prisma.notification.create({
+    data: { recipientId: coupleId, type: 'admin', title, message: text, data: { subtype: 'admin' } },
+  });
+  // Socket + FCM push (emitRealtimeNotification carries both).
+  emitRealtimeNotification(coupleId, {
+    notificationId: notif.id,
+    type: 'admin',
+    title,
+    message: text,
+    data: { subtype: 'admin', notificationId: notif.id },
+  });
+
+  const r = await enqueueForRecipients({
+    family: 'admin_note',
+    coupleId,
+    recipientUserIds: users.map((u) => u.id),
+    ctxExtra: { note: text },
+  });
+  logger.info(`[Nudge] admin ${adminId} sent a note to couple ${coupleId} (whatsapp queued=${r.queued}, held=${r.suppressed})`);
+  return { notificationId: notif.id, whatsappQueued: r.queued, whatsappHeld: r.suppressed };
 }

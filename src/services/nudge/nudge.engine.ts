@@ -9,6 +9,7 @@ import { normalizePhone } from '../../repositories/user.repository';
 import { maskPhone } from '../abuseGuard';
 import {
   ACTIVITY_INSENSITIVE_FAMILIES,
+  FREEFORM_FIRST_FAMILIES,
   HARD_EXCLUDED_FAMILIES,
   NUDGE_CONVERSION_WINDOW_MIN,
   NUDGE_MAX_EVENT_ATTEMPTS,
@@ -371,13 +372,28 @@ export async function dispatchDue(limit = 50): Promise<number> {
     const ctx: CopyContext = { ...((d.context as CopyContext | null) ?? {}), link: buildLinkUrl(token) };
     const variables = renderVariables(template.variables, ctx, template.locale);
 
-    const res = await provider.sendTemplate({
-      toDigits: d.phone,
-      templateName: template.providerName,
-      variables,
-      label: `sawa_${d.family}_${utcDay()}`,
-      locale: template.locale,
-    });
+    // Human-written notes try FREE TEXT first: deliverable only inside the
+    // recipient's open 24h session window (they wrote to us recently), where
+    // it reads personal. A provider refusal falls through to the template.
+    let res: { ok: boolean; providerMessageId?: string; error?: string } | null = null;
+    let viaFreeform = false;
+    if (FREEFORM_FIRST_FAMILIES.has(d.family) && template.bodyPreview) {
+      const text = template.bodyPreview.replace(/\{\{(\d+)\}\}/g, (_m, i) => variables[Number(i) - 1] ?? '');
+      const freeform = await provider.sendText(d.phone, text);
+      if (freeform.ok) {
+        res = freeform;
+        viaFreeform = true;
+      }
+    }
+    if (!res) {
+      res = await provider.sendTemplate({
+        toDigits: d.phone,
+        templateName: template.providerName,
+        variables,
+        label: `sawa_${d.family}_${utcDay()}`,
+        locale: template.locale,
+      });
+    }
 
     if (res.ok) {
       sent += 1;
@@ -385,13 +401,13 @@ export async function dispatchDue(limit = 50): Promise<number> {
         status: 'sent',
         sentAt: new Date(),
         providerMessageId: res.providerMessageId ?? null,
-        templateKey: template.providerName,
+        templateKey: viaFreeform ? 'freeform' : template.providerName,
         variables: variables as unknown as Prisma.InputJsonValue,
         linkToken: token,
         linkTarget: (d.linkTarget ?? targetFor(d.family, undefined)) as unknown as Prisma.InputJsonValue,
         error: null,
       });
-      logger.info(`[Nudge] ${d.family} → ${maskPhone(`+${d.phone}`)} via ${provider.name} (${template.providerName})`);
+      logger.info(`[Nudge] ${d.family} → ${maskPhone(`+${d.phone}`)} via ${provider.name} (${viaFreeform ? 'freeform session' : template.providerName})`);
     } else {
       await finish({
         status: 'failed',

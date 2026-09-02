@@ -831,6 +831,22 @@ export class AdminService {
       message: note,
     });
 
+    // Reach them where they are (2026-09-02, Sailee's flow): the same note
+    // also goes to both partners on WhatsApp (family admin_note — freeform
+    // inside an open 24h session, approved template otherwise).
+    try {
+      const members = await prisma.user.findMany({ where: { coupleId }, select: { id: true } });
+      if (members.length) {
+        const { enqueueForRecipients } = await import('./nudge/nudge.engine');
+        void enqueueForRecipients({
+          family: 'admin_note',
+          coupleId,
+          recipientUserIds: members.map((m) => m.id),
+          ctxExtra: { note },
+        }).catch(() => null);
+      }
+    } catch { /* WhatsApp is best-effort; the in-app note above already landed */ }
+
     logger.info(`[Admin] Requested changes from couple ${coupleId}`);
     return { success: true };
   }

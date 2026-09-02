@@ -91,6 +91,14 @@ export const TEMPLATE_SEEDS: TemplateSeed[] = [
       "{{1}} said hello to you two on Sawa. Take a look and see if you'd like to connect: {{2}}",
   },
   {
+    family: 'admin_note',
+    locale: 'en',
+    providerName: 'sawa_admin_note',
+    category: 'utility',
+    variables: ['recipientName', 'note', 'link'],
+    bodyPreview: 'Hi {{1}}, a quick note from the Sawa team: {{2}} Open Sawa: {{3}}',
+  },
+  {
     family: 'sawa_update',
     locale: 'en',
     providerName: 'sawa_update',
@@ -180,6 +188,7 @@ export interface ResolvedTemplate {
   locale: string;
   providerName: string;
   variables: string[];
+  bodyPreview: string | null;
   quickReplies: Record<string, string> | null;
 }
 
@@ -191,7 +200,7 @@ export interface ResolvedTemplate {
 export async function resolveTemplate(family: string, locale: string | null | undefined): Promise<ResolvedTemplate | null> {
   const rows = await prisma.nudgeTemplate.findMany({
     where: { family, enabled: true },
-    select: { id: true, family: true, locale: true, providerName: true, variables: true, quickReplies: true },
+    select: { id: true, family: true, locale: true, providerName: true, variables: true, bodyPreview: true, quickReplies: true },
   });
   if (rows.length === 0) return null;
   const want = locale && rows.some((r) => r.locale === locale) ? locale : 'en';
@@ -202,6 +211,7 @@ export async function resolveTemplate(family: string, locale: string | null | un
     locale: row.locale,
     providerName: row.providerName,
     variables: row.variables,
+    bodyPreview: row.bodyPreview,
     quickReplies: (row.quickReplies as Record<string, string> | null) ?? null,
   };
 }

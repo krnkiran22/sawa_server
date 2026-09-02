@@ -21,9 +21,9 @@ describe('nudge copy — variables', () => {
 
   it('localizes the feeling for other locales and clips long notes', () => {
     expect(renderVariables(['feeling'], { feeling: 'Calm' }, 'hi')).toEqual(['शांत']);
-    const long = 'x'.repeat(200);
+    const long = 'x'.repeat(400);
     const [note] = renderVariables(['note'], { note: long }, 'en');
-    expect(note.length).toBeLessThanOrEqual(120);
+    expect(note.length).toBeLessThanOrEqual(300);
     expect(note.endsWith('…')).toBe(true);
   });
 
