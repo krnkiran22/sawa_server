@@ -53,6 +53,42 @@ export const OPTION_LABELS: Record<string, string> = {
   'q6-large-groups': 'Avoiding very large groups',
   'q6-alcohol-centric': 'Avoiding alcohol-centric meetups',
   'q6-last-minute': 'Avoiding last-minute/spontaneous plans',
+  // ── v2 questionnaire (2026-09-02): forced choices, behavior, practicals ──
+  // q7a–q7f — this-or-that pairs (one pick each)
+  'q7a-host': 'Hosting at ours',
+  'q7a-guest': 'Being hosted',
+  'q7b-plan': 'Planning a week ahead',
+  'q7b-spont': 'Deciding at 6pm',
+  'q7c-late': 'Out till late',
+  'q7c-early': 'Early start, early home',
+  'q7d-one': 'One couple, long dinner',
+  'q7d-full': 'A full table',
+  'q7e-usual': 'The usual spot we love',
+  'q7e-new': 'Somewhere new every time',
+  'q7f-in': 'Indoors and games',
+  'q7f-out': 'Outside and moving',
+  // q8 — what they actually did last month
+  'q8-hosted': 'Had people over',
+  'q8-newspot': 'Tried a new restaurant',
+  'q8-daytrip': 'Took a day trip',
+  'q8-games': 'Played board or video games',
+  'q8-active': 'Worked out or ran together',
+  'q8-show': 'A live show or a movie hall',
+  'q8-quiet': 'A quiet month',
+  // q9 — when they are usually free
+  'q9-frinight': 'Friday nights',
+  'q9-satday': 'Saturday daytime',
+  'q9-satnight': 'Saturday nights',
+  'q9-sunbrunch': 'Sunday brunch',
+  'q9-weekday': 'Weekday evenings',
+  // q10 — the table
+  'q10-veg': 'A vegetarian table',
+  'q10-nonveg': 'A non-vegetarian table',
+  'q10-all': 'Everything goes',
+  // q11 — drinks
+  'q11-yes': 'Drinks happily on the table',
+  'q11-some': 'Drinks sometimes',
+  'q11-no': 'Skipping the drinks',
 };
 
 const QUESTION_LABELS: Record<string, string> = {
@@ -62,6 +98,18 @@ const QUESTION_LABELS: Record<string, string> = {
   q4: 'Kind of couples they like', // current meaning; legacy resolved below
   q5: 'What makes a good match',
   q6: 'Things to avoid',
+  q7a: 'Host or be hosted',
+  q7b: 'Planners or spontaneous',
+  q7c: 'Late nights or early starts',
+  q7d: 'Intimate dinners or full tables',
+  q7e: 'Usual spot or somewhere new',
+  q7f: 'Indoors or outdoors',
+  q8: 'What they actually did last month',
+  q9: 'When they are usually free',
+  q10: 'Their table',
+  q11: 'Drinks',
+  'q12-spot': 'The spot they keep going back to',
+  'q12-askus': 'Ask them about',
 };
 
 /** q4 changed meaning between app generations — label it by the options it holds. */

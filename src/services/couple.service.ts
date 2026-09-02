@@ -259,7 +259,11 @@ export class CoupleService {
               deleteMany: {},
               create: answers.map((a: any) => ({
                   questionId: a.questionId,
-                  selectedOptionIds: a.selectedOptionIds
+                  selectedOptionIds: a.selectedOptionIds ?? [],
+                  textAnswer:
+                    typeof a.textAnswer === 'string' && a.textAnswer.trim().length > 0
+                      ? a.textAnswer.trim().slice(0, 120)
+                      : null,
               }))
           },
       }
@@ -272,7 +276,13 @@ export class CoupleService {
         // its own drifting copy of the id→label tables (RULES §7 DRY).
         const { labelAnswer } = require('../constants/onboardingLabels');
         const qaData = answers.map((a: any) => {
-          const labeled = labelAnswer(a.questionId, a.selectedOptionIds);
+          // Fill-ins carry the couple's OWN words — the bio's only source of
+          // real specifics; pass them verbatim, never through the label maps.
+          if (typeof a.textAnswer === 'string' && a.textAnswer.trim().length > 0) {
+            const labeled = labelAnswer(a.questionId, []);
+            return { question: labeled.question, answers: [a.textAnswer.trim()] };
+          }
+          const labeled = labelAnswer(a.questionId, a.selectedOptionIds ?? []);
           return { question: labeled.question, answers: labeled.options };
         });
 

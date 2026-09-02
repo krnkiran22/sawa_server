@@ -42,12 +42,14 @@ BIO FORMAT (strict):
 VOICE:
 - NEVER state the relationship status (married, engaged, dating, years together) — the profile shows it as a tag beside their names; the bio is about how they live, not what they are.
 - Pull one real detail from their answers (food, hosting, trips, pace, boundaries).
+- If the answers carry the couple's OWN words (a favourite spot, an "ask us about"), weave the exact name or phrase into the bio — that specificity is the whole point. Never invent a place they didn't name.
 - Gentle humour is fine. No emojis. No hashtags.
 - Never use: journey, passionate, dynamic, foodie, adventure-seekers, partner in crime, love to laugh, vibe, energy, explore, connect, meaningful, authentic (as filler).
 
 GOOD:
 "We host more than we go out — weekends are for friends, good food, and staying up too late."
 "Our calendars are full but we still make room for long dinners and slow Sunday mornings."
+"Ask us about the biryani place we refuse to stop going to."
 
 BAD:
 "We are passionate about building meaningful connections and exploring life together."`,

@@ -20,6 +20,80 @@
 // ─── Vocabulary ───────────────────────────────────────────────────────────────
 
 /**
+ * The SCORING vocabulary: option id → the short token used for overlap
+ * matching and insight copy. This is deliberately NOT the admin's display
+ * map (constants/onboardingLabels): that one carries longer panel labels
+ * ("Weekend trips/travel"); this one carries what an insight line can say
+ * out loud ("weekend trips") and what ancient title-stored rows contain.
+ * Adding a question means adding its ids to BOTH maps.
+ */
+const OPTION_LABELS: Record<string, string> = {
+  // q1 — life stage
+  'q1-career': 'Building careers',
+  'q1-family': 'Family first',
+  'q1-settled': 'Newly settled',
+  'q1-living': 'Living it up',
+  'q1-growing': 'Growing together',
+  'q1-adventure': 'Always exploring',
+  // q2 — couple personality
+  'q2-hosts': 'The Hosts',
+  'q2-yes-couple': "The 'yes' couple",
+  'q2-yes': "The 'yes' couple",
+  'q2-planners': 'The Planners',
+  'q2-explorers': 'The Explorers',
+  // q3 — favorite activities (short, insight-friendly)
+  'q3-dinners-home': 'Dinners at home',
+  'q3-dinner': 'Dinner at home',
+  'q3-restaurants': 'Exploring restaurants',
+  'q3-outdoor': 'Outdoor activities',
+  'q3-cultural': 'Cultural events',
+  'q3-drinks': 'Casual drinks',
+  'q3-trips': 'Weekend trips',
+  // q4 — both generations
+  'q4-once-month': 'meeting once a month',
+  'q4-twice-month': 'meeting twice a month',
+  'q4-once-week': 'meeting once a week',
+  'q4-when-fits': 'meeting when it fits',
+  'q4-similar': 'similar couples',
+  'q4-balanced': 'a balanced mix',
+  'q4-diverse': 'very different couples',
+  // q5/q6 — legacy
+  'q5-similar-stage': 'Similar life stage',
+  'q5-shared-interests': 'Shared interests',
+  'q5-small-groups': 'Small groups',
+  'q5-structured-plans': 'Structured plans',
+  'q5-clear-boundaries': 'Clear boundaries',
+  'q5-weekend-availability': 'Weekend availability',
+  'q6-late-night': 'No late nights',
+  'q6-large-groups': 'No large groups',
+  'q6-alcohol-centric': 'No alcohol focus',
+  'q6-last-minute': 'No last-minute plans',
+  // ── v2 questionnaire (2026-09-02) ──
+  'q7b-plan': 'planning ahead',
+  'q7b-spont': 'deciding at 6pm',
+  'q7c-late': 'late nights out',
+  'q7c-early': 'early starts',
+  'q7d-one': 'one couple, long dinner',
+  'q7d-full': 'a full table',
+  'q7e-usual': 'the usual spot',
+  'q7e-new': 'somewhere new every time',
+  'q7f-in': 'indoors and games',
+  'q7f-out': 'outside and moving',
+  'q8-hosted': 'Had people over',
+  'q8-newspot': 'Tried a new restaurant',
+  'q8-daytrip': 'Took a day trip',
+  'q8-games': 'Played games together',
+  'q8-active': 'Worked out together',
+  'q8-show': 'Caught a show',
+  'q8-quiet': 'A quiet month',
+  'q9-frinight': 'Friday nights',
+  'q9-satday': 'Saturday daytime',
+  'q9-satnight': 'Saturday nights',
+  'q9-sunbrunch': 'Sunday brunch',
+  'q9-weekday': 'Weekday evenings',
+};
+
+/**
  * Display titles for q3 (favorite activities) onboarding option ids.
  * This is the feed's display-tag vocabulary — `getDiscoveryFeed` renders a
  * couple card's tags through this exact map, and insights reuse it so the
@@ -41,39 +115,6 @@ export const Q3_TITLES: Record<string, string> = {
  * are stored as ids; legacy rows may hold titles directly — normalizeToken()
  * resolves both to the same comparable form.
  */
-const OPTION_LABELS: Record<string, string> = {
-  ...Q3_TITLES,
-  // q1 — life stage
-  'q1-career': 'Building careers',
-  'q1-family': 'Family first',
-  'q1-settled': 'Newly settled',
-  'q1-living': 'Living it up',
-  'q1-growing': 'Growing together',
-  'q1-adventure': 'Always exploring',
-  // q2 — couple personality ('q2-yes' ships in the app; 'q2-yes-couple' is legacy)
-  'q2-hosts': 'The hosts',
-  'q2-yes': "The 'yes' couple",
-  'q2-yes-couple': "The 'yes' couple",
-  'q2-planners': 'The planners',
-  'q2-explorers': 'The explorers',
-  // q4 — meeting pace
-  'q4-once-month': 'Meeting once a month',
-  'q4-twice-month': 'Meeting twice a month',
-  'q4-once-week': 'Meeting once a week',
-  'q4-when-fits': 'Meeting whenever it fits',
-  // q5 — what makes a good match (legacy)
-  'q5-similar-stage': 'Matches in a similar life stage',
-  'q5-shared-interests': 'Shared interests',
-  'q5-small-groups': 'Small group settings',
-  'q5-structured-plans': 'Structured plans',
-  'q5-clear-boundaries': 'Clear boundaries',
-  'q5-weekend-availability': 'Weekend availability',
-  // q6 — things to avoid (legacy)
-  'q6-late-night': 'Avoiding late-night plans',
-  'q6-large-groups': 'Avoiding very large groups',
-  'q6-alcohol-centric': 'Avoiding alcohol-centric meetups',
-  'q6-last-minute': 'Avoiding last-minute/spontaneous plans',
-};
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -115,10 +156,20 @@ export const SCORE_FLOOR = 55;
  *   matchCriteria 10 — q5 labels or AI paragraph; noisy, weighted low
  */
 const DIMENSION_WEIGHTS = {
-  answers: 45,
-  activities: 25,
-  socialVibes: 10,
-  matchCriteria: 10,
+  /** Generic per-question overlap (q1, q7b–q7f, q9, plus every legacy id). */
+  answers: 28,
+  /** The curated "what you really enjoy" chips. */
+  activities: 18,
+  /** q8 — what they actually DID last month. Behavior outweighs aspiration. */
+  behaviors: 14,
+  /** q7a — hosting complementarity: a host needs guests (crossed > matched). */
+  hosting: 10,
+  /** q10 — table compatibility matrix (veg / non-veg / everything). */
+  table: 8,
+  /** q11 — drinks comfort matrix. */
+  drinks: 6,
+  socialVibes: 3,
+  matchCriteria: 3,
 } as const;
 
 const SIMILARITY_POINTS = 90;
@@ -159,10 +210,79 @@ const jaccard = (a: Set<string>, b: Set<string>): number => {
   return unionCount === 0 ? 0 : sharedCount / unionCount;
 };
 
+/**
+ * Question ids scored by their OWN dimension below — excluded from the
+ * generic per-question average so their weights are explicit and tunable.
+ */
+const SPECIAL_QUESTIONS = new Set(['q7a', 'q8', 'q10', 'q11']);
+
+/** Raw (un-labeled) option ids for one question — the matrix dimensions
+ *  compare ids exactly, not display tokens. */
+const rawOptionIds = (answers: ScoringAnswer[] | null | undefined, questionId: string): string[] => {
+  const row = (answers ?? []).find((a) => a?.questionId === questionId);
+  return row?.selectedOptionIds?.filter((id) => typeof id === 'string') ?? [];
+};
+
+/** Pairwise compatibility matrices — NOT identity: a veg table and an
+ *  everything-goes table host each other fine; veg and non-veg can still
+ *  meet out (0.35, never zero). */
+const TABLE_COMPAT: Record<string, Record<string, number>> = {
+  'q10-veg': { 'q10-veg': 1, 'q10-all': 0.9, 'q10-nonveg': 0.35 },
+  'q10-nonveg': { 'q10-nonveg': 1, 'q10-all': 0.9, 'q10-veg': 0.35 },
+  'q10-all': { 'q10-all': 1, 'q10-veg': 0.9, 'q10-nonveg': 0.9 },
+};
+const DRINKS_COMPAT: Record<string, Record<string, number>> = {
+  'q11-yes': { 'q11-yes': 1, 'q11-some': 0.8, 'q11-no': 0.4 },
+  'q11-some': { 'q11-yes': 0.8, 'q11-some': 1, 'q11-no': 0.8 },
+  'q11-no': { 'q11-yes': 0.4, 'q11-some': 0.8, 'q11-no': 1 },
+};
+/** Two host-couples both wait for an invite; a host and a guest are a table.
+ *  Matched is still fine (they can meet out), crossed is the fit. */
+const HOSTING_CROSSED = 1;
+const HOSTING_MATCHED = 0.55;
+
+const matrixSimilarity = (
+  mine: ScoringAnswer[] | null | undefined,
+  theirs: ScoringAnswer[] | null | undefined,
+  questionId: string,
+  matrix: Record<string, Record<string, number>>,
+): number | null => {
+  const a = rawOptionIds(mine, questionId)[0];
+  const b = rawOptionIds(theirs, questionId)[0];
+  if (!a || !b) return null;
+  return matrix[a]?.[b] ?? null;
+};
+
+const hostingSimilarity = (
+  mine: ScoringAnswer[] | null | undefined,
+  theirs: ScoringAnswer[] | null | undefined,
+): number | null => {
+  const a = rawOptionIds(mine, 'q7a')[0];
+  const b = rawOptionIds(theirs, 'q7a')[0];
+  if (!a || !b) return null;
+  return a === b ? HOSTING_MATCHED : HOSTING_CROSSED;
+};
+
+/** q8 overlap — what both couples actually did last month (Jaccard on ids;
+ *  a shared quiet month counts too: honesty matching honesty). */
+const behaviorsSimilarity = (
+  mine: ScoringAnswer[] | null | undefined,
+  theirs: ScoringAnswer[] | null | undefined,
+): number | null => {
+  const a = new Set(rawOptionIds(mine, 'q8'));
+  const b = new Set(rawOptionIds(theirs, 'q8'));
+  if (a.size === 0 || b.size === 0) return null;
+  let shared = 0;
+  for (const id of a) if (b.has(id)) shared += 1;
+  const union = a.size + b.size - shared;
+  return union === 0 ? 0 : shared / union;
+};
+
 const answersByQuestion = (answers?: ScoringAnswer[] | null): Map<string, Set<string>> => {
   const map = new Map<string, Set<string>>();
   for (const answer of answers ?? []) {
     if (!answer?.questionId) continue;
+    if (SPECIAL_QUESTIONS.has(answer.questionId)) continue; // own dimensions
     const set = toTokenSet(answer.selectedOptionIds);
     if (set.size > 0) map.set(answer.questionId, set);
   }
@@ -219,6 +339,19 @@ const rawScore = (mine: ScoringCouple, theirs: ScoringCouple): number => {
   const activitySim = setSimilarity(mine.activities, theirs.activities);
   if (activitySim !== null) similarities.push({ weight: DIMENSION_WEIGHTS.activities, value: activitySim });
 
+  const behaviorSim = behaviorsSimilarity(mine.answers, theirs.answers);
+  if (behaviorSim !== null)
+    similarities.push({ weight: DIMENSION_WEIGHTS.behaviors, value: behaviorSim });
+
+  const hostSim = hostingSimilarity(mine.answers, theirs.answers);
+  if (hostSim !== null) similarities.push({ weight: DIMENSION_WEIGHTS.hosting, value: hostSim });
+
+  const tableSim = matrixSimilarity(mine.answers, theirs.answers, 'q10', TABLE_COMPAT);
+  if (tableSim !== null) similarities.push({ weight: DIMENSION_WEIGHTS.table, value: tableSim });
+
+  const drinkSim = matrixSimilarity(mine.answers, theirs.answers, 'q11', DRINKS_COMPAT);
+  if (drinkSim !== null) similarities.push({ weight: DIMENSION_WEIGHTS.drinks, value: drinkSim });
+
   const vibeSim = setSimilarity(mine.socialVibes, theirs.socialVibes);
   if (vibeSim !== null) similarities.push({ weight: DIMENSION_WEIGHTS.socialVibes, value: vibeSim });
 
@@ -271,6 +404,37 @@ export const generateInsights = (mine: ScoringCouple, theirs: ScoringCouple): st
     const b = theirsByQ.get(questionId);
     return a && b ? intersect(a, b) : [];
   };
+
+  // 0. Complementary hosting — the strongest possible first line: it names
+  //    exactly how an evening between these four people would work.
+  const myHosting = rawOptionIds(mine.answers, 'q7a')[0];
+  const theirHosting = rawOptionIds(theirs.answers, 'q7a')[0];
+  if (myHosting && theirHosting && myHosting !== theirHosting) {
+    push(
+      myHosting === 'q7a-host'
+        ? 'You love hosting, they love being hosted'
+        : 'They love hosting, you love being hosted',
+    );
+  }
+
+  // 0b. A shared free window — the plan writes itself.
+  for (const token of sharedForQuestion('q9')) {
+    push(`Same free window - ${token}`);
+  }
+
+  // 0c. Same real behavior last month.
+  const myQ8 = new Set(rawOptionIds(mine.answers, 'q8'));
+  for (const id of rawOptionIds(theirs.answers, 'q8')) {
+    if (id !== 'q8-quiet' && myQ8.has(id)) {
+      push(`${OPTION_LABELS[id] ?? id} - both of you, just last month`);
+    }
+  }
+
+  // 0d. Tables that agree (only when it is a real constraint match).
+  const myTable = rawOptionIds(mine.answers, 'q10')[0];
+  if (myTable && myTable === rawOptionIds(theirs.answers, 'q10')[0] && myTable !== 'q10-all') {
+    push(myTable === 'q10-veg' ? 'Both tables are vegetarian' : 'Both tables are non-vegetarian');
+  }
 
   // 1. Things they both love doing — q3 answers merged with activity chips.
   //    The strongest, most concrete overlap; may contribute both insights.

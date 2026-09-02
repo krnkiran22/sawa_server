@@ -138,6 +138,8 @@ model OnboardingAnswer {
   coupleId          String
   questionId        String
   selectedOptionIds String[]
+  /** Fill-in-the-blank answers (q12 family) — one line of the couple's own words. */
+  textAnswer        String?
   couple            Couple   @relation(fields: [coupleId], references: [coupleId])
 
   @@index([coupleId])

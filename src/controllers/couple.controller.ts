@@ -105,7 +105,9 @@ const SubmitAnswersSchema = z.object({
   answers: z.array(
     z.object({
       questionId: z.string(),
-      selectedOptionIds: z.array(z.string()),
+      selectedOptionIds: z.array(z.string()).default([]),
+      // Fill-in answers (q12 family): one line, the couple's own words.
+      textAnswer: z.string().trim().max(120).optional(),
     })
   ),
 });
@@ -128,7 +130,8 @@ const CompleteOnboardingSchema = z.object({
   answers: z.array(
     z.object({
       questionId: z.string(),
-      selectedOptionIds: z.array(z.string()),
+      selectedOptionIds: z.array(z.string()).default([]),
+      textAnswer: z.string().trim().max(120).optional(),
     })
   ).optional().default([]),
   location: z.object({

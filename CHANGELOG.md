@@ -4,6 +4,36 @@
 
 ---
 
+## [2026-09-02] — Questionnaire v2: forced choices, behavior, practicals, and the couple's own words
+
+**Why:** the old questions were generic enough that most couples gave the same answers, so the
+score measured nothing and every AI bio read alike (Arfam). v2 is designed backwards from the
+two consumers: variance for the scorer, specifics for the bio.
+
+- **Answers can carry text now:** `OnboardingAnswer.textAnswer` (≤120 chars) + both answer
+  schemas accept it; fill-ins (q12 family) reach the bio VERBATIM, never through label maps,
+  and the prompt is instructed to weave the exact spot/phrase in.
+- **New question families** (labels in `constants/onboardingLabels` for the panel, and in the
+  scorer's own vocabulary map): q7a–f this-or-that pairs, q8 last-month behavior, q9 free
+  windows, q10 table (veg/non-veg/everything), q11 drinks, q12 fill-ins.
+- **Scorer (`matchScore.ts`):** four new dimensions with explicit weights — behaviors 14
+  (q8 Jaccard; what they DID outweighs what they like), hosting complementarity 10 (q7a:
+  host+guest = 1.0, matched = 0.55 — a host needs guests), table 8 and drinks 6 (pairwise
+  compatibility matrices, never zero: veg↔non-veg can still meet out). Generic answers
+  dimension drops to 28 and excludes the special ids; absent data still renormalizes, so
+  legacy profiles score exactly as before against each other. New insight lines, priority
+  first: crossed hosting ("You love hosting, they love being hosted"), shared free window,
+  shared last-month act, matching tables.
+- **Tests:** `matchScore.qv2.test.ts` pins the design (11 cases: complementarity ordering,
+  matrix ordering, behavior weighting, insight copy + direction, legacy compatibility,
+  symmetry). Suite 122/122. Also: `@types/jest` is now a real devDependency — the old runs
+  only passed off a warm ts-jest transform cache.
+- Schema self-applies at boot (`db push`): one nullable column, additive.
+
+---
+
+## [2026-09-02] — WATI live in prod + Sailee's message box (admin_note, freeform-first)
+
 ## [2026-09-02] — Push: dual-project Firebase (store-move transition)
 
 **Why:** the Play build (`in.sawaliving.app`, mobile `a963ab9`) registers FCM tokens on the
