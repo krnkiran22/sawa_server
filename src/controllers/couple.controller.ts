@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import { coupleService } from '../services/couple.service';
+import { matchService } from '../services/match.service';
 import { authService } from '../services/auth.service';
 import { prisma } from '../lib/prisma';
 import { sendSuccess } from '../utils/response';
@@ -334,9 +335,12 @@ export const completeOnboarding = async (req: Request, res: Response) => {
     );
   }
   if (!stored?.primaryPhoto) {
-    // Expected but not fatal: completion without a photo doesn't bounce the
-    // couple back into onboarding, it just leaves the profile photo-less.
-    logger.warn(`[CoupleController] completeOnboarding for ${coupleId}: no primary photo stored`);
+    // STRICT since 2026-09-01 (Arfam: the first photo is mandatory — Sailee
+    // cannot review a faceless profile). Every build from 1.0.7(14) collects
+    // it before this call; a missing one is a defect, not a legacy build.
+    logger.warn(`[CoupleController] completeOnboarding REFUSED for ${coupleId}: no primary photo stored`);
+    logAuthEvent('onboarding.refused_no_photo', { coupleId });
+    throw new AppError('Add your first photo to finish your profile.', 400, 'PHOTO_REQUIRED');
   }
   // City is mandatory in the product (Arfam: "they must fill city") and the
   // current app enforces it client-side before this call. WARN-only here
@@ -491,10 +495,21 @@ export const subscribe = async (req: Request, res: Response) => {
 
 export const getCoupleById = async (req: Request, res: Response) => {
   const { id } = req.params;
+  const viewerCoupleId = req.user?.coupleId;
   // Use lightweight summary — public profile view doesn't need communityMembers or answers
   const couple = await coupleService.getCoupleSummary(id);
   if (!couple) {
     throw new AppError('Couple profile not found', 404);
+  }
+  // Pending profiles are invisible (Arfam 2026-09-01): a share link or a
+  // stale card must not leak an unreviewed profile. The couple still sees
+  // itself, and an already-connected couple keeps seeing who it matched.
+  const isOwn = !!viewerCoupleId && couple.coupleId === viewerCoupleId;
+  if (couple.verificationStatus !== 'verified' && !isOwn) {
+    const connected = await matchService.areConnected(viewerCoupleId ?? '', couple.coupleId);
+    if (!connected) {
+      throw new AppError('Couple profile not found', 404);
+    }
   }
   sendSuccess({ res, data: { couple } });
 };

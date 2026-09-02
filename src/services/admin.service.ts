@@ -794,7 +794,7 @@ export class AdminService {
 
     const title = 'Your profile is verified! 💛';
     const message =
-      'Congratulations — your couple profile has been approved. You now carry the Verified badge on Sawa. Have fun out there!';
+      'Congratulations, your couple profile has been approved. You now carry the Verified badge on Sawa. Have fun out there!';
     const notif = await prisma.notification.create({
       data: { recipientId: coupleId, type: 'admin', title, message },
     });

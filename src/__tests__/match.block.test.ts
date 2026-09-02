@@ -27,6 +27,9 @@ const coupleRow = (over: Record<string, unknown>) => ({
   activities: [],
   socialVibes: [],
   matchCriteria: [],
+  // Verified by default: the verification gates sit before the block guard's
+  // outcome paths, and these tests exercise blocking between normal users.
+  verificationStatus: 'verified',
   blocked: [],
   answers: [],
   ...over,

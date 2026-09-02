@@ -132,9 +132,11 @@ export class MatchService {
       // contains operator (`@>`), served by the GIN index on Couple.blocked
       // (schema.prisma @@index([blocked], type: Gin)) — no sequential scan.
       NOT: { blocked: { has: me.coupleId } },
-      // Rejected couples linger in the DB until the user acknowledges the
-      // rejection popup (max 30 days) — they must never surface in discovery.
-      verificationStatus: { not: 'rejected' as any },
+      // Verified only (Arfam 2026-09-01): a profile under review is INVISIBLE
+      // to other couples — the deck holds only what Sailee has approved.
+      // (Rejected couples linger in the DB until they acknowledge the
+      // rejection popup; this filter excludes them too.)
+      verificationStatus: 'verified' as any,
     };
 
     if (cityFilter && cityFilter !== 'All City' && cityFilter !== 'All Cities' && cityFilter !== 'Unknown') {
@@ -207,11 +209,28 @@ export class MatchService {
   /**
    * Say hello (like) to a couple
    */
+  /** True when an accepted match row exists between the two couples. */
+  async areConnected(a: string, b: string): Promise<boolean> {
+    if (!a || !b) return false;
+    const row = await prisma.match.findFirst({
+      where: {
+        status: 'accepted',
+        OR: [
+          { couple1Id: a, couple2Id: b },
+          { couple1Id: b, couple2Id: a },
+        ],
+      },
+      select: { id: true },
+    });
+    return !!row;
+  }
+
   async sayHello(requestingCoupleId: string, targetCoupleIdStr: string, coupleMongoId?: string) {
     const sayHelloSelect = {
       id: true, coupleId: true, profileName: true, primaryPhoto: true,
       locationCity: true, bio: true, activities: true, socialVibes: true, matchCriteria: true,
       relationshipStatus: true,
+      verificationStatus: true,
       // `blocked` is needed for the bidirectional-block guard below (v3 M2).
       blocked: true,
       ...SCORING_ANSWERS_SELECT,
@@ -243,6 +262,18 @@ export class MatchService {
     const targetBlockedMe = Array.isArray(targetCouple.blocked) && targetCouple.blocked.includes(me.coupleId);
     if (iBlockedTarget || targetBlockedMe) {
       throw new AppError('This connection is not available', 403, 'BLOCKED');
+    }
+
+    // Verification gates (Arfam 2026-09-01: pending profiles are invisible).
+    // A couple under review can browse but not act — their hello would put an
+    // unverified profile in front of couples who were promised verified only.
+    if ((me as any).verificationStatus !== 'verified') {
+      throw new AppError('Your profile is under review', 403, 'UNDER_REVIEW');
+    }
+    // And nobody reaches a pending couple (deep link, stale card, search):
+    // the same neutral refusal as a block — never say which, never leak why.
+    if ((targetCouple as any).verificationStatus !== 'verified') {
+      throw new AppError('This connection is not available', 403, 'UNAVAILABLE');
     }
 
     // Deterministic compatibility for this pair — persisted on the Match row.
