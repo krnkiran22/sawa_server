@@ -99,12 +99,14 @@ export const TEMPLATE_SEEDS: TemplateSeed[] = [
     bodyPreview: "Hi {{1}}, a quick note from the Sawa team: {{2}}\n\nOpen Sawa: {{3}}\n\nWe're glad you two are here.",
   },
   {
+    // Button pilot (2026-09-02): the link rides an 'Open Sawa' dynamic-URL
+    // button (base https://api.sawaliving.in/l/ + {{2}} suffix), not the body.
     family: 'sawa_update',
     locale: 'en',
     providerName: 'sawa_update',
     category: 'utility',
-    variables: ['text', 'link'],
-    bodyPreview: "Hello from Sawa: {{1}}\n\nOpen the app: {{2}}\n\nSee you there.",
+    variables: ['text', 'linkToken'],
+    bodyPreview: "Hello from Sawa: {{1}}\n\nTap below to open the app. See you there.",
   },
   // ── Journeys (proactive, marketing-priced) ─────────────────────────────────
   {

@@ -43,6 +43,14 @@ const RESOLVERS: Record<string, Resolver> = {
   suggestion: (c) => (c.suggestion || '').trim(),
   text: (c) => clip(c.text),
   link: (c) => c.link || '',
+  // For templates whose link rides a dynamic-URL BUTTON (base
+  // https://api.sawaliving.in/l/ + suffix): only the token travels. Always
+  // place it LAST in `variables`; the body then uses one variable fewer.
+  linkToken: (c) => {
+    const l = c.link || '';
+    const i = l.indexOf('/l/');
+    return i >= 0 ? l.slice(i + 3) : '';
+  },
 };
 
 /** True when every variable id is known, so admin typos surface before approval. */

@@ -35,9 +35,11 @@ describe('nudge copy — variables', () => {
     for (const s of TEMPLATE_SEEDS) {
       for (const v of s.variables) expect(knownVariable(v)).toBe(true);
       expect(s.bodyPreview).not.toContain('—');
-      // Every {{n}} in the body has a variable behind it.
+      // Every {{n}} in the body has a variable behind it. A trailing
+      // 'linkToken' feeds a dynamic-URL button instead of the body.
       const max = Math.max(0, ...Array.from(s.bodyPreview.matchAll(/\{\{(\d+)\}\}/g)).map((m) => Number(m[1])));
-      expect(max).toBe(s.variables.length);
+      const bodyVars = s.variables[s.variables.length - 1] === 'linkToken' ? s.variables.length - 1 : s.variables.length;
+      expect(max).toBe(bodyVars);
     }
   });
 });
