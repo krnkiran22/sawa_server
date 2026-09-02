@@ -4,6 +4,21 @@
 
 ---
 
+## [2026-09-02] — Push: dual-project Firebase (store-move transition)
+
+**Why:** the Play build (`in.sawaliving.app`, mobile `a963ab9`) registers FCM tokens on the
+Sawa-owned Firebase project `sawa-living`, while the live iOS TestFlight build and the old
+APK fleet hold tokens from the agency-era `sawa-21088`. One credential can only push to one
+project, so the store move would have silenced one side or the other.
+
+**What:** `push.service.ts` initialises a second, named Firebase app from the new optional
+env `FIREBASE_SERVICE_ACCOUNT_JSON_LEGACY`; both send sites route through `sendViaProjects`,
+which retries a send on the legacy project when FCM reports a cross-project token
+(sender-id-mismatch / mismatched-credential / invalid / not-registered). A failure on the
+legacy attempt propagates its own error, so dead-token pruning stays truthful. PRIMARY
+(`FIREBASE_SERVICE_ACCOUNT_JSON`) becomes the sawa-living key at deploy; the old key moves
+to LEGACY. Unsetting LEGACY retires the fallback with no code change.
+
 ## [2026-09-02] — Events: dated happenings alongside circles (approval-gated), API + admin surface
 
 **Why (Arfam, 2026-09-02):** the Groups tab becomes **Events-led** — "change the name from

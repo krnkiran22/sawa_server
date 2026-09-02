@@ -100,6 +100,8 @@ const localizeFor = (
 
 let initialised = false;
 let enabled = false;
+// Secondary Firebase app for the store-move transition (see init below).
+let legacyApp: admin.app.App | null = null;
 
 const init = (): void => {
   if (initialised) return;
@@ -159,9 +161,62 @@ const init = (): void => {
         `Check FIREBASE_SERVICE_ACCOUNT_JSON is valid JSON with a correct private_key.`,
     );
   }
+
+  // ── Legacy project fallback (store move, 2026-09-02) ──────────────────────
+  // The Play build (in.sawaliving.app) registers tokens on the Sawa-owned
+  // Firebase project (sawa-living) while the older iOS/APK builds still hold
+  // tokens from the agency-era project (sawa-21088). FIREBASE_SERVICE_ACCOUNT_JSON
+  // is the PRIMARY (new) project; FIREBASE_SERVICE_ACCOUNT_JSON_LEGACY keeps the
+  // old project answering until every build migrates. Unset the legacy var to
+  // retire the fallback — the code path goes dormant on its own.
+  const rawLegacy = process.env.FIREBASE_SERVICE_ACCOUNT_JSON_LEGACY;
+  if (rawLegacy) {
+    try {
+      const legacyAccount: Record<string, any> = JSON.parse(rawLegacy);
+      if (typeof legacyAccount.private_key === 'string' && legacyAccount.private_key.includes('\\n')) {
+        legacyAccount.private_key = legacyAccount.private_key.replace(/\\n/g, '\n');
+      }
+      legacyApp = admin.initializeApp(
+        { credential: admin.credential.cert(legacyAccount as admin.ServiceAccount) },
+        'legacy',
+      );
+      logger.info(
+        `[Push] Legacy Firebase fallback ENABLED (project: ${legacyAccount.project_id ?? 'unknown'}).`,
+      );
+    } catch (err: any) {
+      logger.error(`[Push] Legacy Firebase init FAILED — fallback disabled. Reason: ${err.message}.`);
+    }
+  }
 };
 
 init();
+
+// A token belongs to exactly one Firebase project, and during the store-move
+// transition we hold tokens from two. FCM reports a foreign token as
+// sender-id-mismatch / mismatched-credential — but depending on token age it
+// can also surface as invalid/not-registered, so all of those retry against
+// the legacy project when one is configured. If the legacy attempt fails too,
+// ITS error propagates, so the callers' dead-token pruning still sees a
+// truthful code and never prunes on a cross-project artifact.
+const CROSS_PROJECT_RETRY_CODES = new Set([
+  'messaging/sender-id-mismatch',
+  'messaging/mismatched-credential',
+  'messaging/invalid-argument',
+  'messaging/invalid-registration-token',
+  'messaging/registration-token-not-registered',
+]);
+
+const sendViaProjects = async (message: admin.messaging.Message): Promise<string> => {
+  try {
+    return await admin.messaging().send(message);
+  } catch (err: any) {
+    const code = (err?.errorInfo?.code ?? err?.code) as string | undefined;
+    if (legacyApp && code && CROSS_PROJECT_RETRY_CODES.has(code)) {
+      return await legacyApp.messaging().send(message);
+    }
+    throw err;
+  }
+};
 
 export interface PushPayload {
   title: string;
@@ -251,7 +306,7 @@ export const pushToCouple = async (
     targets.map(async (u) => {
       const { title, body, data } = localizeFor(payload, u.preferredLocale);
       try {
-        await admin.messaging().send({
+        await sendViaProjects({
           token: u.pushToken,
           // NO notification field → pure data message on Android (notifee renders).
           data,
@@ -322,7 +377,7 @@ export const pushToUser = async (
   logger.info(`[Push] pushToUser(${userId}): sending "${title}".`);
 
   try {
-    const response = await admin.messaging().send({
+    const response = await sendViaProjects({
       token,
       // Android: data-only so the app's notifee background handler renders it
       // with the full-color SAWA logo. iOS: APNs alert for system auto-display.
