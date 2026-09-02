@@ -149,7 +149,13 @@ const envSchema = z.object({
   NUDGE_WHATSAPP_DELAY_MIN: z.string().default('0').transform(Number),
   // Run the outbox/dispatch/journey loops on this process (pm2 worker 0).
   NUDGE_WORKER_ENABLED: z.string().default('true').transform((v) => v === 'true'),
-  GROQ_API_KEY: z.string().min(1, 'GROQ_API_KEY is required'),
+  // Couple bio ("About us") generation runs on OpenAI. Optional so the server
+  // boots without it — generation is skipped (empty bio, user writes their
+  // own) until the key is added to the environment.
+  OPENAI_API_KEY: z.string().optional(),
+  // Legacy: bio generation used Groq before the OpenAI switch (2026-09-02).
+  // Kept optional so existing deployments with the var set don't break.
+  GROQ_API_KEY: z.string().optional(),
   // Admin portal bootstrap. On startup the server upserts an admin user with
   // these credentials so the admin dashboard login always works after a deploy.
   // No committed defaults: if unset, admin bootstrap is skipped (see

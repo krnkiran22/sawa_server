@@ -2,11 +2,23 @@ import OpenAI from 'openai';
 import { logger } from './logger';
 import { env } from '../config/env';
 
-const client = new OpenAI({
-  apiKey: env.GROQ_API_KEY,
-  baseURL: 'https://api.groq.com/openai/v1',
-});
+/**
+ * Bio generation runs on OpenAI (switched from Groq, 2026-09-02 — the Groq
+ * path returned empty bios in prod, leaving every new couple's About blank).
+ *
+ * The client is created lazily so the server boots and runs fine before
+ * OPENAI_API_KEY lands in the environment: until then generation is skipped
+ * with a warning and callers receive the same empty result as any other
+ * generation failure (the app lets the couple write their own About).
+ */
+let client: OpenAI | null = null;
+const getClient = (): OpenAI | null => {
+  if (!env.OPENAI_API_KEY) return null;
+  if (!client) client = new OpenAI({ apiKey: env.OPENAI_API_KEY });
+  return client;
+};
 
+const BIO_MODEL = 'gpt-4o-mini';
 const BIO_MAX_LINES = 2;
 const BIO_MAX_WORDS = 45;
 
@@ -17,13 +29,19 @@ const BIO_MAX_WORDS = 45;
 export const generateCoupleBio = async (
   qaData: Array<{ question: string; answers: string[] }>,
 ): Promise<{ bio: string; matchCriteria: string[] }> => {
+  const openai = getClient();
+  if (!openai) {
+    logger.warn('[OpenAI] OPENAI_API_KEY not set — skipping couple bio generation.');
+    return { bio: '', matchCriteria: [] };
+  }
+
   try {
     const context = qaData
       .map((item) => `Q: ${item.question}\nA: ${item.answers.join(', ')}`)
       .join('\n\n');
 
-    const response = await client.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+    const response = await openai.chat.completions.create({
+      model: BIO_MODEL,
       messages: [
         {
           role: 'system',
@@ -81,14 +99,14 @@ BAD:
       .slice(0, BIO_MAX_LINES)
       .join('\n');
 
-    logger.info(`[GroqAI] Bio generation successful (${bio.split('\n').length} line(s)).`);
+    logger.info(`[OpenAI] Bio generation successful (${bio.split('\n').length} line(s)).`);
 
     return {
       bio,
       matchCriteria: parsed.matchCriteria ? [String(parsed.matchCriteria).trim()] : [],
     };
   } catch (err) {
-    logger.error('[GroqAI] Failed to generate structured bio:', err);
+    logger.error('[OpenAI] Failed to generate structured bio:', err);
     return { bio: '', matchCriteria: [] };
   }
 };
