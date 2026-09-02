@@ -11,7 +11,11 @@ describe('nudge copy — variables', () => {
     const vars = renderVariables(seed.variables, { name: 'Neha Sharma', g: 'f', feeling: 'Calm', link: 'https://api.sawaliving.in/l/abc' }, 'en');
     expect(vars).toEqual(['Neha', 'her', "She's", 'calm', 'https://api.sawaliving.in/l/abc']);
     const body = seed.bodyPreview.replace(/\{\{(\d)\}\}/g, (_m, i) => vars[Number(i) - 1]);
-    expect(body).toBe("Neha just shared her mood. She's feeling calm 💛 Want to share how you're feeling? https://api.sawaliving.in/l/abc");
+    // 2026-09-02 rewrite: fixed text on both ends (Meta refuses templates that
+    // start or end with a variable), link on its own line, warm closer.
+    expect(body).toBe(
+      "On Sawa: Neha just shared her mood. She's feeling calm 💛 Want to share how you're feeling?\n\nhttps://api.sawaliving.in/l/abc\n\nOne tap and they'll know.",
+    );
     expect(body).not.toContain('—');
   });
 

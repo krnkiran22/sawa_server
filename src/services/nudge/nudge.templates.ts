@@ -35,7 +35,7 @@ export const TEMPLATE_SEEDS: TemplateSeed[] = [
     category: 'utility',
     variables: ['recipientName', 'link'],
     bodyPreview:
-      'Welcome to Sawa, {{1}}. This is the space you two will share: moods, little notes, plans, and couples worth meeting. Set up your profile together: {{2}}',
+      "Welcome to Sawa, {{1}}. This is the space you two will share: moods, little notes, plans, and couples worth meeting.\n\nSet up your profile together: {{2}}\n\nSee you inside.",
   },
   {
     family: 'partner_invite',
@@ -43,7 +43,7 @@ export const TEMPLATE_SEEDS: TemplateSeed[] = [
     providerName: 'sawa_partner_invite',
     category: 'utility',
     variables: ['link'],
-    bodyPreview: 'Your partner has joined Sawa and is waiting for you. Download the app: {{1}}',
+    bodyPreview: "Your partner has joined Sawa and is waiting for you. Download the app: {{1}}\n\nSee you both inside.",
   },
   {
     family: 'partner_waiting',
@@ -52,7 +52,7 @@ export const TEMPLATE_SEEDS: TemplateSeed[] = [
     category: 'utility',
     variables: ['partnerName', 'link'],
     bodyPreview:
-      '{{1}} set up your shared Sawa profile and is waiting for you. It takes two minutes to join: {{2}}',
+      "Good news: {{1}} set up your shared Sawa profile and is waiting for you. It takes two minutes to join: {{2}}\n\nSee you both inside.",
   },
   {
     family: 'us_mood',
@@ -61,7 +61,7 @@ export const TEMPLATE_SEEDS: TemplateSeed[] = [
     category: 'utility',
     variables: ['name', 'poss', 'subjBe', 'feeling', 'link'],
     bodyPreview:
-      "{{1}} just shared {{2}} mood. {{3}} feeling {{4}} 💛 Want to share how you're feeling? {{5}}",
+      "On Sawa: {{1}} just shared {{2}} mood. {{3}} feeling {{4}} \ud83d\udc9b Want to share how you're feeling?\n\n{{5}}\n\nOne tap and they'll know.",
     quickReplies: { 'Send love back': 'us_love' },
   },
   {
@@ -70,7 +70,7 @@ export const TEMPLATE_SEEDS: TemplateSeed[] = [
     providerName: 'sawa_fridge_note',
     category: 'utility',
     variables: ['name', 'note', 'link'],
-    bodyPreview: '{{1}} left you a little note on the fridge: "{{2}}" See it in Sawa: {{3}}',
+    bodyPreview: "New on your fridge: {{1}} left you a little note: \"{{2}}\"\n\nSee it in Sawa: {{3}}\n\nIt's pinned and waiting.",
     quickReplies: { 'Got it': 'open' },
   },
   {
@@ -79,7 +79,7 @@ export const TEMPLATE_SEEDS: TemplateSeed[] = [
     providerName: 'sawa_game_challenge',
     category: 'utility',
     variables: ['name', 'game', 'link'],
-    bodyPreview: "{{1}} just challenged you to {{2}} 🎲 Tap yes in Sawa and you're on: {{3}}",
+    bodyPreview: "Game on: {{1}} just challenged you to {{2}} \ud83c\udfb2 Tap yes and you're on: {{3}}\n\nWinner picks dinner.",
   },
   {
     family: 'match_pending',
@@ -88,7 +88,7 @@ export const TEMPLATE_SEEDS: TemplateSeed[] = [
     category: 'utility',
     variables: ['profileName', 'link'],
     bodyPreview:
-      "{{1}} said hello to you two on Sawa. Take a look and see if you'd like to connect: {{2}}",
+      "Someone noticed you two: {{1}} said hello on Sawa. Take a look and see if you'd like to connect: {{2}}\n\nNo rush, no pressure.",
   },
   {
     family: 'admin_note',
@@ -96,7 +96,7 @@ export const TEMPLATE_SEEDS: TemplateSeed[] = [
     providerName: 'sawa_admin_note',
     category: 'utility',
     variables: ['recipientName', 'note', 'link'],
-    bodyPreview: 'Hi {{1}}, a quick note from the Sawa team: {{2}} Open Sawa: {{3}}',
+    bodyPreview: "Hi {{1}}, a quick note from the Sawa team: {{2}}\n\nOpen Sawa: {{3}}\n\nWe're glad you two are here.",
   },
   {
     family: 'sawa_update',
@@ -104,7 +104,7 @@ export const TEMPLATE_SEEDS: TemplateSeed[] = [
     providerName: 'sawa_update',
     category: 'utility',
     variables: ['text', 'link'],
-    bodyPreview: '{{1}} Open Sawa: {{2}}',
+    bodyPreview: "Hello from Sawa: {{1}}\n\nOpen the app: {{2}}\n\nSee you there.",
   },
   // ── Journeys (proactive, marketing-priced) ─────────────────────────────────
   {
@@ -113,7 +113,7 @@ export const TEMPLATE_SEEDS: TemplateSeed[] = [
     providerName: 'sawa_first_mood',
     category: 'marketing',
     variables: ['partnerName', 'link'],
-    bodyPreview: 'How are you both feeling today? A quick mood in Sawa lets {{1}} know: {{2}}',
+    bodyPreview: "How are you both feeling today? A quick mood in Sawa lets {{1}} know: {{2}}\n\nIt takes ten seconds.",
   },
   {
     family: 'first_circle',
@@ -121,7 +121,7 @@ export const TEMPLATE_SEEDS: TemplateSeed[] = [
     providerName: 'sawa_first_circle',
     category: 'marketing',
     variables: ['city', 'link'],
-    bodyPreview: "There's a circle in {{1}} that might be your kind of people. Take a look: {{2}}",
+    bodyPreview: "There's a circle in {{1}} that might be your kind of people. Take a look: {{2}}\n\nYour kind of plans start there.",
   },
   {
     family: 'first_game',
@@ -129,7 +129,7 @@ export const TEMPLATE_SEEDS: TemplateSeed[] = [
     providerName: 'sawa_first_game',
     category: 'marketing',
     variables: ['partnerName', 'link'],
-    bodyPreview: 'Two minutes, one game. Challenge {{1}} to a quick round: {{2}}',
+    bodyPreview: "Two minutes, one game. Challenge {{1}} to a quick round: {{2}}\n\nLoser owes a chai.",
   },
   {
     family: 'friday_plan',
@@ -137,7 +137,7 @@ export const TEMPLATE_SEEDS: TemplateSeed[] = [
     providerName: 'sawa_friday_plan',
     category: 'marketing',
     variables: ['suggestion', 'link'],
-    bodyPreview: "It's Friday, you two. {{1}} Plan something small for the weekend: {{2}}",
+    bodyPreview: "It's Friday, you two. {{1}} Plan something small for the weekend: {{2}}\n\nSmall counts too.",
   },
   {
     family: 'sunday_checkin',
@@ -145,7 +145,7 @@ export const TEMPLATE_SEEDS: TemplateSeed[] = [
     providerName: 'sawa_sunday_checkin',
     category: 'marketing',
     variables: ['link'],
-    bodyPreview: 'How was the week, you two? Share a mood and a little note: {{1}}',
+    bodyPreview: "How was the week, you two? Share a mood and a little note: {{1}}\n\nEnd the week together.",
   },
   {
     family: 'quiet_couple',
@@ -153,7 +153,7 @@ export const TEMPLATE_SEEDS: TemplateSeed[] = [
     providerName: 'sawa_quiet_couple',
     category: 'marketing',
     variables: ['link'],
-    bodyPreview: "It's been a while, you two. A quick game or a little note is all it takes: {{1}}",
+    bodyPreview: "It's been a while, you two. A quick game or a little note is all it takes: {{1}}\n\nWe kept everything as you left it.",
   },
 ];
 
