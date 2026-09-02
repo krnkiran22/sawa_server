@@ -1,7 +1,7 @@
 # SAWA Backend — Rules & Conventions
 
 > **Always read this file before making any changes to the backend.**
-> Last verified: 2026-08-31 against `main` + `feat/nudge-layer`. **Living document**:
+> Last verified: 2026-09-02 against `main` (Events surface landed). **Living document**:
 > any commit that makes a line here false must update that line in the same
 > commit and bump this stamp.
 >
@@ -169,13 +169,13 @@
 - **TypeScript only** — zero `.js` files in `src/` (verified). Exported
   functions in new code carry explicit return types.
 - **zod validation** through `src/middleware/validate.ts` for request bodies
-  and query params. Wired on auth, chat, community, match, couple, and
+  and query params. Wired on auth, chat, community, event, match, couple, and
   notification (`:id` params). **Baseline debt:** admin, subscription, and
   user controllers predate it — any endpoint you touch there gets zod in the
   same change.
 - **`asyncHandler`** (`src/utils/asyncHandler.ts`) wraps controllers at the
-  route layer. Wired in 10 of 15 route files (the `nudge`, `webhook` and
-  `/admin/nudges/*` handlers are wrapped); `admin`, `prompt`, `report`, and
+  route layer. Wired in 11 of 16 route files (the `nudge`, `webhook`,
+  `event` and `/admin/nudges/*` + `/admin/events/*` handlers are wrapped); `admin`, `prompt`, `report`, and
   `us` routes are baseline debt — wrap when touched.
 - Errors thrown as `AppError`; `async/await` only, no raw promise chains.
 - Constants in `src/constants/` — no magic strings/numbers inline.

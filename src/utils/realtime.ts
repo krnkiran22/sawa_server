@@ -5,6 +5,7 @@ function deriveNavigate(type?: string, data?: Record<string, unknown>): string {
   if (type === 'message' && data?.matchId) return 'PrivateChatThread';
   if (type === 'message' && data?.communityId) return 'GroupChat';
   if (type === 'community' && data?.communityId) return 'CommunityDetail';
+  if (type === 'event' && data?.eventId) return 'EventDetail';
   return 'Notifications';
 }
 

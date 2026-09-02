@@ -5,6 +5,7 @@ import { adminAuth } from '../middleware/adminAuth';
 import { authRateLimiter } from '../middleware/rateLimiter';
 import { asyncHandler } from '../utils/asyncHandler';
 import * as nudgeAdmin from '../controllers/adminNudge.controller';
+import * as eventAdmin from '../controllers/adminEvent.controller';
 
 const router = Router();
 const controller = new AdminController();
@@ -47,6 +48,15 @@ router.delete('/blocks', controller.adminUnblock);
 router.patch('/reports/:id', controller.resolveReport);
 router.post('/notifications', controller.sendNotification);
 router.post('/flush-database', controller.flushDatabase);
+
+// ─── Events (controllers/adminEvent.controller.ts) ───────────────────────────
+// Approval queue for couple-proposed events + CRUD for Sawa-listed ones.
+router.get('/events', asyncHandler(eventAdmin.listEvents));
+router.post('/events', eventAdmin.validateAdminCreateEvent, asyncHandler(eventAdmin.createEvent));
+router.patch('/events/:id', eventAdmin.validateEventIdParams, eventAdmin.validateAdminPatchEvent, asyncHandler(eventAdmin.patchEvent));
+router.post('/events/:id/approve', eventAdmin.validateEventIdParams, asyncHandler(eventAdmin.approveEvent));
+router.post('/events/:id/reject', eventAdmin.validateEventIdParams, eventAdmin.validateAdminRejectEvent, asyncHandler(eventAdmin.rejectEvent));
+router.delete('/events/:id', eventAdmin.validateEventIdParams, asyncHandler(eventAdmin.deleteEvent));
 
 // ─── Nudge Layer control room (controllers/adminNudge.controller.ts) ─────────
 router.get('/nudges/overview', nudgeAdmin.validateOverviewQuery, asyncHandler(nudgeAdmin.overview));

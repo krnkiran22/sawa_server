@@ -105,6 +105,8 @@ model Couple {
   communityAdmins       CommunityAdmin[]
   communityRequests     CommunityJoinRequest[]
   communityMembers      CommunityMember[]
+  eventsCreated         Event[]                @relation("Event_createdBy")
+  eventRsvps            EventRsvp[]            @relation("EventRsvp_couple")
   partner1              User?                  @relation("Partner1", fields: [partner1Id], references: [id])
   partner2              User?                  @relation("Partner2", fields: [partner2Id], references: [id])
   matchActions          Match[]                @relation("Match_actionBy")
@@ -157,6 +159,7 @@ model Community {
   joinRequests  CommunityJoinRequest[]
   members       CommunityMember[]
   messages      Message[]
+  events        Event[]
 
   @@index([city])
   @@index([createdAt])
@@ -197,6 +200,60 @@ model CommunityJoinRequest {
   @@unique([communityId, coupleId])
   @@index([coupleId])
   @@map("community_join_requests")
+}
+
+// ─── Events (2026-09-02) ─────────────────────────────────────────────────────
+// Dated happenings, distinct from Community circles (which are ongoing).
+// Two sources: `sawa` rows are curated by the team from the admin panel and are
+// born approved; `couple` rows are proposed in-app and sit `pending` until an
+// admin approves them (invite-only brand promise: everything visible is vetted).
+// An event may optionally be hosted by a circle (communityId).
+
+model Event {
+  id            String        @id @default(cuid()) @map("_id")
+  title         String
+  description   String?
+  city          String
+  category      EventCategory
+  coverImageUrl String?
+  venueName     String?
+  startsAt      DateTime
+  endsAt        DateTime?
+  /// Max couples that can RSVP; null = uncapped.
+  capacity      Int?
+  status        EventStatus   @default(pending)
+  source        EventSource   @default(couple)
+  /// Admin's reason when rejecting a couple-proposed event (shown to creator).
+  rejectionNote String?
+  /// Creator couple; null for Sawa-listed rows.
+  createdById   String?
+  /// Hosting circle, optional.
+  communityId   String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  createdBy     Couple?       @relation("Event_createdBy", fields: [createdById], references: [coupleId])
+  community     Community?    @relation(fields: [communityId], references: [id])
+  rsvps         EventRsvp[]
+
+  // Feed query: approved + city + upcoming, ordered by startsAt.
+  @@index([status, city, startsAt])
+  @@index([createdById])
+  @@index([communityId])
+  @@index([startsAt])
+  @@map("events")
+}
+
+model EventRsvp {
+  id        String   @id @default(cuid()) @map("_id")
+  eventId   String
+  coupleId  String
+  createdAt DateTime @default(now())
+  event     Event    @relation(fields: [eventId], references: [id])
+  couple    Couple   @relation("EventRsvp_couple", fields: [coupleId], references: [coupleId])
+
+  @@unique([eventId, coupleId])
+  @@index([coupleId])
+  @@map("event_rsvps")
 }
 
 model Match {
@@ -484,6 +541,34 @@ enum NotificationType {
   system
   admin
   nearby
+  event
+}
+
+// ─── Events ──────────────────────────────────────────────────────────────────
+
+enum EventStatus {
+  pending
+  approved
+  rejected
+  cancelled
+}
+
+enum EventSource {
+  /// Proposed in-app by a couple; needs admin approval before it is visible.
+  couple
+  /// Curated by the Sawa team from the admin panel; born approved.
+  sawa
+}
+
+/// Fixed taxonomy, from the live community categories (Master Reference §4.5).
+/// Labels are localized client-side; these keys are the contract.
+enum EventCategory {
+  outdoors
+  sports
+  food_drinks
+  culture_arts
+  wellness
+  home
 }
 
 enum ReportStatus {

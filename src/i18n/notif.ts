@@ -198,6 +198,64 @@ const T: Record<string, Entry> = {
     },
   },
 
+  // ── Events ──────────────────────────────────────────────────────────────────
+  'event.approved': {
+    title: {
+      en: 'Your event is on',
+      hi: 'आपका इवेंट लाइव है',
+      kn: 'ನಿಮ್ಮ ಈವೆಂಟ್ ಲೈವ್ ಆಗಿದೆ',
+      mr: 'तुमचा इव्हेंट लाइव्ह आहे',
+    },
+    body: {
+      en: '{event} is now visible to couples in {city}.',
+      hi: '{event} अब {city} के जोड़ों को दिख रहा है।',
+      kn: '{event} ಈಗ {city} ಜೋಡಿಗಳಿಗೆ ಕಾಣಿಸುತ್ತಿದೆ.',
+      mr: '{event} आता {city} मधील जोडप्यांना दिसत आहे.',
+    },
+  },
+  'event.rejected': {
+    title: {
+      en: 'About your event',
+      hi: 'आपके इवेंट के बारे में',
+      kn: 'ನಿಮ್ಮ ಈವೆಂಟ್ ಬಗ್ಗೆ',
+      mr: 'तुमच्या इव्हेंटबद्दल',
+    },
+    body: {
+      en: 'We could not list {event} this time. Tap for the note from the team.',
+      hi: 'इस बार {event} सूची में नहीं आ सका। टीम का नोट देखने के लिए टैप करें।',
+      kn: 'ಈ ಬಾರಿ {event} ಪಟ್ಟಿಗೆ ಸೇರಿಸಲು ಆಗಲಿಲ್ಲ. ತಂಡದ ಟಿಪ್ಪಣಿಗೆ ಟ್ಯಾಪ್ ಮಾಡಿ.',
+      mr: 'यावेळी {event} यादीत घेता आला नाही. टीमची नोंद पाहण्यासाठी टॅप करा.',
+    },
+  },
+  'event.cancelled': {
+    title: {
+      en: 'Plan change',
+      hi: 'प्लान बदला',
+      kn: 'ಪ್ಲಾನ್ ಬದಲಾಗಿದೆ',
+      mr: 'प्लॅन बदलला',
+    },
+    body: {
+      en: '{event} was called off. See you at the next one.',
+      hi: '{event} रद्द हो गया। अगली बार मिलते हैं।',
+      kn: '{event} ರದ್ದಾಗಿದೆ. ಮುಂದಿನ ಸಲ ಸಿಗೋಣ.',
+      mr: '{event} रद्द झाला. पुढच्या वेळी भेटू.',
+    },
+  },
+  'nearby.event': {
+    title: {
+      en: 'A new plan in {city}',
+      hi: '{city} में नया प्लान',
+      kn: '{city} ನಲ್ಲಿ ಹೊಸ ಪ್ಲಾನ್',
+      mr: '{city} मध्ये नवीन प्लॅन',
+    },
+    body: {
+      en: '{event} just went up. Take a look!',
+      hi: '{event} अभी लिस्ट हुआ है। देख लीजिए।',
+      kn: '{event} ಇದೀಗ ಪಟ್ಟಿಯಾಗಿದೆ. ನೋಡಿ ಬನ್ನಿ.',
+      mr: '{event} नुकताच लिस्ट झाला. बघून या.',
+    },
+  },
+
   // ── Us space: ask / fridge / cycle ──────────────────────────────────────────
   'us.askFeeling': {
     title: {

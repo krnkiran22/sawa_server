@@ -4,7 +4,44 @@
 
 ---
 
-## [2026-09-02] — WATI live in prod + Sailee's message box (admin_note, freeform-first)
+## [2026-09-02] — Events: dated happenings alongside circles (approval-gated), API + admin surface
+
+**Why (Arfam, 2026-09-02):** the Groups tab becomes **Events-led** — "change the name from
+communities to events, with visible city / category / date tags; user-created events need
+approval, Sawa-listed events come only from the admin panel." Structure decision (Arfam,
+same day): **events lead, groups stay** — circles survive as ongoing groups and can host
+events; an event is a new object, not a renamed community. Events are also the business
+model arriving in product: revenue stream #2 is curated events 2–4/city/month, and dated
+supply reads curated where thin ongoing groups read dead.
+
+- **Schema (additive, self-applies via `db:deploy`):** `Event` (title, city,
+  `EventCategory` outdoors|sports|food_drinks|culture_arts|wellness|home, cover, venue,
+  startsAt/endsAt, capacity, `EventStatus` pending|approved|rejected|cancelled,
+  `EventSource` couple|sawa, rejectionNote, optional creator couple + host circle) and
+  `EventRsvp` (event × couple, unique). `NotificationType` gains `event`.
+- **User API `/events`** (authenticate + zod, full layering, envelope): feed
+  (approved + not-yet-over, city/category filters, 30s Redis-backed cache mirroring the
+  communities list cache), `mine`, propose (born `pending`, creator auto-RSVP'd,
+  circle-hosted events require circle adminship, cover via `materializeImageLoose`),
+  detail (pending/rejected are creator-only — the team's rejection note never leaks into
+  a feed), rsvp (idempotent, capacity fails closed in a transaction), unrsvp, cancel
+  (attendees notified). Feed is capped `take: 200` instead of cursor-paginated — supply
+  is curation-bounded (2–4/city/month); revisit if that ever stops being true.
+- **Admin API `/admin/events`** (adminAuth + zod): list (creator + RSVP counts), create
+  Sawa-listed (born `approved`, `source: sawa`), patch, approve (notifies creator via
+  `event.approved` + announces `nearby.event` to complete couples in the city — mirrors
+  the circle announcement), reject (optional ≤300-char note → `event.rejected`), delete.
+- **Notifications:** four new ×4-locale keys in `i18n/notif.ts` (`event.approved`,
+  `event.rejected`, `event.cancelled`, `nearby.event`); `deriveNavigate` maps
+  `type: event` + `eventId` → `EventDetail`. Old app builds without that screen degrade
+  to the Notifications list via the existing router fallback.
+- **Deliberate deferrals, logged:** no per-event chat (a circle-hosted event inherits its
+  circle's chat; standalone event chat is a later decision), no entitlement gate on
+  creation (admin approval is the gate until Prime returns), no WhatsApp nudge family
+  (Meta template approval required — separate step).
+
+Gates: `tsc --noEmit` 0 errors. Contract shape documented in PLAN.md (Event model +
+`/events` + `/admin/events` tables). Mobile Events surface ships separately in the app repo.
 
 **Ops (go-live):** WATI credentials landed in `sawa/prod/server-env` (Arfam ran the one-time
 script; this session may not write that secret), `sawa_infra` task map gained the ten

@@ -147,6 +147,24 @@ id, name, description, coverImageUrl, members [ref: Couple],
 admins [ref: Couple], isPrivate, maxMembers, tags, createdAt
 ```
 
+### Event (2026-09-02)
+```
+id, title, description, city, category (outdoors|sports|food_drinks|
+culture_arts|wellness|home), coverImageUrl, venueName, startsAt, endsAt,
+capacity, status (pending|approved|rejected|cancelled),
+source (couple|sawa), rejectionNote, createdBy [ref: Couple, null for
+sawa rows], community [ref: Community, optional host circle],
+rsvps → EventRsvp (event × couple, unique)
+```
+Dated happenings, distinct from Community circles (ongoing). Couple-proposed
+events are born `pending` and surface only after admin approval (the
+invite-only vetting promise); Sawa-listed events (admin panel) are born
+`approved` with `source: sawa`. Approving or admin-creating an upcoming event
+announces it to complete couples in its city (`nearby.event`); approve/reject/
+cancel notify through the standard pipeline with `type: event` (tap target
+`EventDetail`). Entitlement gating on event creation is deliberately deferred
+until Prime returns — admin approval is the gate.
+
 ### Message
 ```
 id, chatId (polymorphic: match | community), senderId (ref: Couple),
@@ -220,6 +238,27 @@ variables, category, enabled) · `Journey` (proactive nudges as data). See
 | POST | `/communities/:id/join` | ✅ | Join a community |
 | POST | `/communities/:id/leave` | ✅ | Leave a community |
 | GET | `/communities/mine` | ✅ | My communities |
+
+### Events (`/events`) — 2026-09-02
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/events?city=&category=` | ✅ | Approved, not-yet-over events, soonest first (capped 200 — bounded by curation, so no cursor yet) |
+| GET | `/events/mine` | ✅ | Created (any status, incl. pending/rejected) + RSVP'd |
+| POST | `/events` | ✅ | Propose an event → born `pending`; creator is auto-RSVP'd |
+| GET | `/events/:id` | ✅ | Detail + first 6 attendees; pending/rejected visible to creator only |
+| POST | `/events/:id/rsvp` | ✅ | Going (idempotent; capacity fails closed in a transaction) |
+| DELETE | `/events/:id/rsvp` | ✅ | Not going (the creator must cancel instead) |
+| POST | `/events/:id/cancel` | ✅ | Creator calls it off; attendees are notified |
+
+### Admin events (`/admin/events`, adminAuth) — 2026-09-02
+| Method | Path | Description |
+|---|---|---|
+| GET | `/admin/events` | Everything (capped 500), with creator + RSVP counts |
+| POST | `/admin/events` | Create a Sawa-listed event (born `approved`, `source: sawa`) |
+| PATCH | `/admin/events/:id` | Edit fields / cover (base64 accepted) |
+| POST | `/admin/events/:id/approve` | pending → approved; notifies creator + announces to the city |
+| POST | `/admin/events/:id/reject` | pending → rejected (+ optional note ≤300, shown to the creator) |
+| DELETE | `/admin/events/:id` | Delete the event + its RSVPs |
 
 ### Chat (`/chats`)
 | Method | Path | Auth | Description |
